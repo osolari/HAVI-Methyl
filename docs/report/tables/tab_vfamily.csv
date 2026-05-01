@@ -1,0 +1,5 @@
+family,expressiveness,cost_per_step,gradient_variance
+Mean-field Gaussian (logit scale),low (unimodal),low,low
+Mean-field Beta,low (unimodal),low,moderate (Beta reparam)
+"Normalizing flow (NSF, K blocks)",high (multi-modal),moderate (O(K)),low (pathwise)
+IWAE-tightened flow (K samples),high,high (Kx),moderate (DReG; Tucker 2019)

@@ -1,0 +1,5 @@
+elbo_term,indexed_by,rescaling_factor
+"Reconstruction log p(F | beta) summed over (s, l)",S x L plate,(S * L) / (|B_s| * |B_l|)
+Population KL on mu_pop,L plate,L / |B_l|
+Sample-shift KL on delta,S plate,S / |B_s|
+"Local KL on eta summed over (s, l)",S x L plate,(S * L) / (|B_s| * |B_l|)

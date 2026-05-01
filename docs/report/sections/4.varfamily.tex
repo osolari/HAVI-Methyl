@@ -1,0 +1,63 @@
+\section{Variational Family}
+\label{sec:varfamily}
+
+We approximate the posterior $p(\bm{\mu}^{\mathrm{pop}},\bdelta,\bbeta\mid F)$ by a structured variational distribution
+\begin{equation}
+q(\bm{\mu}^{\mathrm{pop}},\bdelta,\bbeta) = \prod_\ell q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)\,\prod_s q_{\nu_s}(\delta_s)\,\prod_{s,\ell} q_\phi(\eta_{s,\ell}\mid F_{s,\ell}; \bar m_\ell, \bar m_s).
+\label{eq:varfamily}
+\end{equation}
+Here $\bar m_\ell$ and $\bar m_s$ are the current variational means of $q_{\lambda_\ell}$ and $q_{\nu_s}$ respectively, passed in to the encoder as deterministic context vectors rather than as random samples. This is a structured-VI choice that preserves amortization—the encoder weights $\phi$ are shared across all $(s,\ell)$—while giving the local posterior access to the current best-guess of the population structure.
+
+\paragraph{Encoder amortization.} The encoder parameters $\phi$ are shared across every $(s,\ell)$ pair and across every fragment bag. This is the central amortization that the title of the paper advertises and that the model relies on for tractable inference at the $L\sim 30\,\text{M}$ CpG scale. A new sample requires no re-fitting, only a forward pass through $\phi$ for each locus.
+
+\subsection{Population layer: mean-field Gaussian on logit scale}
+For each locus, $q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)=\N(m_\ell,v_\ell)$, with variational parameters $\lambda_\ell=(m_\ell,v_\ell)$. This is the conjugate-exponential-family update layer that admits closed-form natural-gradient SVI in the manner of \citet{hoffman2013svi}; full derivation in Section~\ref{sec:elbo}. The same form is used for the per-sample shift,
+\begin{equation}
+q_{\nu_s}(\delta_s)=\N(m_s^\delta,v_s^\delta), \qquad \nu_s=(m_s^\delta,v_s^\delta).
+\end{equation}
+
+\subsection{Per-(sample, locus) layer: amortized normalizing flow}
+The bottleneck is $q_\phi(\eta_{s,\ell}\mid F_{s,\ell};\bar m_\ell,\bar m_s)$. A diagonal Gaussian is too restrictive because the posterior is genuinely skewed (saturating near $\eta\to\pm\infty$ for hyper- and hypo-methylated loci) and sometimes bimodal in low-coverage CpG-poor regions. We use a normalizing flow:
+\begin{equation}
+\eta_{s,\ell} = T_\phi(\epsilon; c_{s,\ell}),\quad \epsilon\sim\N(0,1),
+\end{equation}
+where $T_\phi(\cdot; c)$ is a stack of $K$ neural-spline-flow (NSF) \citep{durkan2019nsf} or inverse-autoregressive-flow (IAF) \citep{kingma2016iaf} blocks, conditioned on a context vector $c_{s,\ell}\in\R^{d_c}$ produced by an encoder. The log-density follows from the change-of-variables formula:
+\begin{equation}
+\log q_\phi(\eta\mid c) = \log\N(\epsilon;0,1) - \log\big|\det\nabla_\epsilon T_\phi(\epsilon; c)\big|.
+\label{eq:flow-density}
+\end{equation}
+
+\subsection{Set Transformer encoder for fragment bags}
+The fragment bag $F_{s,\ell}=\{f_{s,\ell,j}\}$ is permutation-invariant. We encode it with a Set Transformer \citep{lee2019settransformer} composed of self-attention blocks (SAB) and pooling-by-multi-head-attention (PMA):
+\begin{equation}
+c^{\mathrm{frag}}_{s,\ell}=\mathrm{PMA}_1\big(\mathrm{ISAB}^{(L_e)}\circ\cdots\circ \mathrm{ISAB}^{(1)}(\{f_{s,\ell,j}\})\big),
+\end{equation}
+where ISAB is the induced-set attention block of \citet{lee2019settransformer} with $m=64$ inducing points (yielding $O(n\cdot m)$ rather than $O(n^2)$ memory), and $\mathrm{PMA}_1$ pools to a single $d_c$-dimensional vector with one learned seed query as defined in \citet[\S 3.2]{lee2019settransformer}. This produces a $d_c$-dimensional embedding invariant to fragment ordering.
+
+\subsection{Sequence-context encoder}
+We additionally condition on a sequence-context vector $c^{\mathrm{seq}}_\ell$ derived from the $\pm 1$~kb DNA sequence around the locus (a $2$~kb total window). We use either a small dilated CNN, trained jointly, or a frozen embedding from HyenaDNA \citep{nguyen2023hyenadna} or Caduceus \citep{schiff2024caduceus}; both are bidirectional long-range DNA encoders with subquadratic attention. The full encoder context is the concatenation
+\begin{equation}
+c_{s,\ell}=[c^{\mathrm{frag}}_{s,\ell}\,\|\,c^{\mathrm{seq}}_\ell\,\|\,\bar m_\ell\,\|\,\bar m_s\,\|\,\log(1+n^{\mathrm{frag}}_{s,\ell})],
+\end{equation}
+where the last entry passes the (log-transformed) coverage at the locus to the encoder so it can scale its uncertainty appropriately.
+
+\subsection{Comparison of variational families}
+A natural alternative is $q(\beta_{s,\ell})=\Bet(a_{s,\ell},b_{s,\ell})$ with $(a,b)$ produced by an inference network. The Beta family is unimodal and cannot capture bimodal posteriors that arise in low-coverage CpG-poor regions, where the locus may be either hypo- or hyper-methylated with comparable posterior mass. Reparameterization for the Beta distribution was historically delicate, but is now well-handled by implicit reparameterization \citep{figurnov2018implicit}, rejection-sampling reparameterization \citep{naesseth2017reparam}, and pathwise gradients \citep{jankowiak2018pathwise}. We use logit-space normalizing flows as the primary choice and include the mean-field Beta as an ablation baseline. Table~\ref{tab:vfamily} summarizes the trade-offs across four families.
+
+\begin{table}[h]
+\centering\small
+\caption{Variational-family choices for the per-(sample, locus) layer.}
+\label{tab:vfamily}
+\begin{tabular}{lccc}
+\toprule
+Family & Expressiveness & Cost / step & Gradient variance \\
+\midrule
+Mean-field Gaussian (logit scale) & low (unimodal) & low & low \\
+Mean-field Beta & low (unimodal) & low & moderate (Beta reparam) \\
+Normalizing flow (NSF, $K$ blocks) & high (multi-modal) & moderate ($O(K)$) & low (pathwise) \\
+IWAE-tightened flow ($K$ samples) & high & high ($K\times$) & moderate (DReG \citealp{tucker2019dreg}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================

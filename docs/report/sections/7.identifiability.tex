@@ -1,0 +1,48 @@
+\section{Identifiability and De-confounding}
+\label{sec:identify}
+
+A latent-variable model that conditions on per-sample features is exposed to several confounding pathways. The most insidious in cfDNA work is \emph{buffy-coat prior leakage}: FinaleMe seeds its prior with the same individual's leukocyte methylome, so any disease signal that also alters leukocytes (inflammation, treatment effects) is absorbed into the prior and erased from the prediction. We address this with three coordinated mechanisms, treating $U$ as the unmeasured confounders, $\zeta$ as the encoder representation, $X_{\mathrm{prior}}$ as the buffy-coat prior input, and $G$ as the mQTL genotype throughout this section.
+
+\subsection{Variational information bottleneck}
+Following \citet{alemi2017vib}, we add a penalty $\beta_{\mathrm{VIB}}\,I(\zeta;X_{\mathrm{prior}})$ where $\zeta$ is the encoder output and $X_{\mathrm{prior}}$ is the buffy-coat prior input. Because $I(\zeta;X_{\mathrm{prior}})\le \E_{X_{\mathrm{prior}}}[\KL(p(\zeta\mid X_{\mathrm{prior}})\|r(\zeta))]$ for any marginal proxy $r(\zeta)$, we minimize the upper bound by adding
+\begin{equation}
+\elbo_{\mathrm{VIB}}=\elbo - \beta_{\mathrm{VIB}}\,\E_{X_{\mathrm{prior}}}\!\big[\KL(q_\phi(\zeta\mid X_{\mathrm{prior}})\|r(\zeta))\big].
+\label{eq:vib}
+\end{equation}
+We choose $r(\zeta)=\N(0,I)$ as the standard isotropic-Gaussian marginal proxy. This is the cheapest tractable choice and the one that makes the variational upper bound on mutual information closed-form against a Gaussian encoder. Tighter bounds are available with amortized priors $r_\psi(\zeta)$ trained jointly with the encoder \citep{tomczak2018vampprior}, at the cost of extra parameters and the risk of co-adaptation between $r_\psi$ and $q_\phi$ that loosens the bound.
+
+\subsection{Counterfactual / invariance augmentation}
+For each training sample $s$ we generate a counterfactual prior input by sampling the buffy-coat methylome of \emph{another} individual matched on age and sex, and require the prediction $\hat\beta$ to be invariant to this swap up to a small tolerance. Concretely, we sample matched pairs $(s,s')$ from a matching distribution $M(s,s')$ that places mass on individuals with similar $(\text{age},\text{sex})$ covariates and add the penalty
+\begin{equation}
+\elbo \gets \elbo - \lambda_{\mathrm{cf}}\,\E_{(s,s')\sim M}\big\|\hat\beta_{s,\ell}(F_s, X^{\mathrm{prior}}_s) - \hat\beta_{s,\ell}(F_s, X^{\mathrm{prior}}_{s'})\big\|^2.
+\end{equation}
+
+\subsection{mQTL anchor loss}
+For each locus $\ell$ in an anchor set $\mathcal{A}$ with a known cis-mQTL SNP $g_\ell$ \citep{min2021mqtl}, the SNP genotype acts as an instrumental variable for $\mu^{\mathrm{pop}}_\ell$ \citep{sanderson2022mr}. The anchor loss is a regression of the population variational mean $\hat m_\ell$ on the genotype:
+\begin{equation}
+\mathcal{L}_{\mathrm{mQTL}} = \sum_{\ell\in\mathcal{A}}\big(\hat m_\ell - a_\ell - b_\ell\, g_\ell\big)^2,
+\end{equation}
+where $(a_\ell, b_\ell)$ are the locus-specific intercept and effect-size parameters of the cis-mQTL. We \emph{fix} $(a_\ell, b_\ell)$ at values estimated from external mQTL summary statistics—specifically the GoDMC consortium catalogue of \citet{min2021mqtl}, which provides $b_\ell$ as the SNP-on-methylation effect estimate at $\sim 248{,}607$ independent cis-mQTLs at $5\times 10^{-8}$ genome-wide significance. Co-training $(a_\ell,b_\ell)$ would defeat the purpose of the anchor argument, since the IV would no longer be exogenous.
+
+\begin{proposition}[Hierarchical identifiability under instrumental anchors]
+\label{prop:identify}
+Let $U$ denote unmeasured confounders, $X_{\mathrm{prior}}$ the buffy-coat input, and $G$ the mQTL genotype. Assume:
+\begin{enumerate}[label=(\roman*),itemsep=2pt,topsep=2pt]
+\item \emph{Mendelian randomization:} $G\perp U$.
+\item \emph{Relevance:} $G\not\!\perp \mu^{\mathrm{pop}}$, i.e.\ the IV is informative about the population latent.
+\item \emph{Exclusion restriction:} $G\perp F\mid (\mu^{\mathrm{pop}},U)$, i.e.\ the IV affects fragments only through the latent.
+\item \emph{Completeness:} the conditional distribution $p(\mu^{\mathrm{pop}}\mid G)$ is complete in the sense of \citet{newey2003instrumental} and \citet{darolles2011nonparametric}, i.e.\ for any measurable $h$ with $\E[h(\mu^{\mathrm{pop}})\mid G]=0$ a.s., it follows that $h(\mu^{\mathrm{pop}})=0$ a.s.
+\end{enumerate}
+Then the population latent $\mu^{\mathrm{pop}}$ is point-identified from the joint $(F,G,X_{\mathrm{prior}})$, and the VIB-regularized variational posterior \eqref{eq:vib} converges to the correct conditional with $\beta_{\mathrm{VIB}}\to\infty$ in the population limit.
+\end{proposition}
+\begin{proof}[Proof sketch]
+Identification follows from the standard nonparametric IV moment condition: under (i)--(iii), $\E[F\mid G]=\E[\E[F\mid \mu^{\mathrm{pop}},U]\mid G]=\E[\E[F\mid\mu^{\mathrm{pop}}]\mid G]$, which gives a Fredholm integral equation in $\mu^{\mathrm{pop}}$. Completeness assumption (iv) is the standard regularity condition under which this integral equation has a unique solution, yielding point identification of the conditional expectation function $\E[F\mid\mu^{\mathrm{pop}}]$ and hence of the marginal distribution of $\mu^{\mathrm{pop}}$ via the Fredholm inverse \citep{newey2003instrumental,darolles2011nonparametric}. Without (iv), the moment condition can be satisfied by multiple $\mu^{\mathrm{pop}}$ distributions and identification fails. The VIB penalty drives $I(\zeta; X_{\mathrm{prior}})\to 0$ in the encoder as $\beta_{\mathrm{VIB}}\to\infty$, so the residual nuisance contribution from $U$ vanishes; combined with the conjugate Gaussian variational family on $\mu^{\mathrm{pop}}$, the natural-gradient SVI fixed point recovers the correct conditional given $(F,G)$.
+\end{proof}
+
+\subsection{Combined identifiability story}
+The three mechanisms—VIB, mQTL anchors, and counterfactual augmentation—address complementary classes of confounders. The VIB penalty bounds the mutual information between the encoder representation $\zeta$ and the buffy-coat input $X_{\mathrm{prior}}$, neutralizing leakage from any feature of $X_{\mathrm{prior}}$ regardless of whether it is a known confounder. The mQTL anchor loss provides a positive identification guarantee for the population latent $\mu^{\mathrm{pop}}_\ell$ under the four IV assumptions of Proposition~\ref{prop:identify}, including the previously-implicit completeness condition. Counterfactual augmentation enforces invariance to swaps of the buffy-coat input across age- and sex-matched individuals, which is a robustness check against finite-sample VIB failures. The three mechanisms together provide both a positive identification result (mQTL) and a defense in depth (VIB plus counterfactuals) against confounders that the IV assumptions might miss.
+
+\subsection{Domain-adversarial training}
+We additionally train a domain classifier $D_\psi$ to predict the cohort label (healthy / pregnancy / cancer) from $\zeta$, and apply a gradient reversal layer \citep{ganin2016dann} so that the encoder produces cohort-invariant features. This is an additional defense against batch and indication confounding.
+
+% ============================================================

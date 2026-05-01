@@ -1,0 +1,56 @@
+\section{Benchmarking Plan on Real Data}
+\label{sec:benchmark}
+
+\subsection{Datasets}
+We propose to evaluate on four publicly-available datasets, summarized in Table~\ref{tab:datasets}. The 80 paired WGS/WGBS plasma samples of \citet{liu2024finaleme} provide the head-to-head FinaleMe comparison; the Sun-2015, Moss-2018, and Loyfer-2023 atlases provide tissue-of-origin reference panels at increasing cell-type resolution. WGBS is held out as ground truth for the methylation prediction task; flow cytometry where available is held out as ground truth for tissue fractions.
+
+\begin{table}[h]
+\centering\small
+\caption{Public datasets used in the benchmarking plan.}
+\label{tab:datasets}
+\begin{tabular}{lllll}
+\toprule
+Dataset & $S$ & Mean coverage & Paired WGBS & Access \\
+\midrule
+\citet{liu2024finaleme} & $80$ & $\sim 1\times$ & yes & EGA \\
+\citet{sun2015}        & $32$ & $\sim 35\times$ WGBS & WGBS-only & SRA \\
+\citet{moss2018}        & $25$ & methylation array & N/A & GEO \\
+\citet{loyfer2023}      & $39$ cell types from $205$ samples & WGBS atlas & N/A & GSE186458 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Metrics}
+We report per-CpG Pearson and Spearman correlation; ROC-AUC for thresholded binary methylation at $\beta=0.5$; expected calibration error (ECE) for credible intervals; intraclass correlation coefficient for test-retest reliability under the ICC(2,1) two-way random-effects single-rater convention of \citet{higginschen2022pcclocks}; DMR detection F1 against WGBS-derived DMRs called by \texttt{methylKit} at $\Delta\beta\ge 0.25$ and $q\le 0.05$; and tissue-fraction RMSE against orthogonal flow cytometry where available.
+
+\subsection{Ablations}
+We propose a factorial ablation across six axes, mapped to the model components they remove, summarized in Table~\ref{tab:ablations}. The full HAVI-Methyl model corresponds to row 6 (all components on); each row above adds one component. Comparison of consecutive rows isolates the contribution of the added component.
+
+\begin{table}[h]
+\centering\small
+\caption{Ablation factorial. Each row is one configuration; checkmarks indicate which components are enabled.}
+\label{tab:ablations}
+\begin{tabular}{lcccccc}
+\toprule
+Configuration & VB-HMM & BetaBin & Hierarchy & Flow & VIB & Conformal \\
+\midrule
+1. VB-HMM only & \checkmark & & & & & \\
+2. + Beta-Binomial likelihood & \checkmark & \checkmark & & & & \\
+3. + hierarchical SVI & \checkmark & \checkmark & \checkmark & & & \\
+4. + amortized flow posterior & \checkmark & \checkmark & \checkmark & \checkmark & & \\
+5. + VIB de-confounding & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \\
+6. + conformal wrapper (full) & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Baselines}
+We compare against (i) FinaleMe \citep{liu2024finaleme} for methylation prediction, (ii) DeepCpG \citep{angermueller2017deepcpg} as a deep-learning point-estimator baseline, (iii) an elastic-net regression of $\beta$ on pooled fragment features as a non-deep regression baseline, (iv) CelFiE \citep{caggiano2021celfie} for tissue-of-origin deconvolution, and (v) MethylGPT \citep{methylgpt2024} as a foundation-model comparison on inferred methylation, where MethylGPT consumes HAVI-Methyl's $\beta$ output as its input.
+
+\subsection{Evaluation protocol}
+We use leave-one-sample-out cross-validation on the FinaleMe 80 for the methylation prediction task, with locus-level metrics aggregated across folds. To prevent leakage between training and test loci through chromosomal proximity, we additionally hold out chromosomes 1 and 22 entirely as a chromosome-stratified test set. DMRs are defined at $\Delta\beta\ge 0.25$ and Benjamini-Hochberg-corrected $q\le 0.05$ in a two-sided test; DMR F1 is computed against WGBS-derived DMRs called under the same thresholds. For tissue-of-origin, we report leave-one-individual-out RMSE on the Moss-2018 panel where flow cytometry is available, and leave-one-tissue-out reconstruction error on Loyfer-2023. All metrics are reported with $95\%$ bootstrap confidence intervals over $1000$ resamples.
+
+\subsection{Compute budget on wafer-scale accelerator}
+The HAVI-Methyl encoder consists of approximately $1.0\,\text{M}$ trainable parameters: the Set Transformer with $L_e=2$ ISAB layers at hidden dimension $128$ contributes $\sim 0.2\,\text{M}$; the $K=6$ neural-spline-flow stack at hidden dimension $128$ with 8 spline bins contributes $\sim 0.7\,\text{M}$; the heads (Beta-Binomial sufficient-statistic, end-motif categorical, Negative-Binomial coverage, tissue-of-origin Dirichlet) contribute $\sim 0.1\,\text{M}$ jointly. The HyenaDNA sequence encoder is frozen and not counted. Per-step FLOPs at $|B_s|=8$ samples and $|B_\ell|=4096$ loci with mean fragments per locus $\bar n=20$ are dominated by the ISAB layer at $\sim 4\bar n m d_c\cdot|B_s||B_\ell|\approx 1.7\times 10^{10}$ FLOPs and the flow forward at $\sim 2 K d_c^2\cdot|B_s||B_\ell|\approx 1.6\times 10^{10}$ FLOPs, for a total of $\sim 5\times 10^{10}$ FLOPs per step. A single wafer-scale accelerator wafer at sustained $\sim 100\,\mathrm{TFLOPs/s}$ on this workload would execute approximately $2000$ steps per second. The 80-sample FinaleMe data with $L\approx 30\,\text{M}$ CpGs requires $L/|B_\ell|\approx 7000$ steps per epoch; at one epoch and standard convergence, training completes in under an hour on a single wafer-scale accelerator, with the bulk of wall-clock time spent on data loading and HyenaDNA forward passes rather than the trainable parameters. Linear scaling to a 16-wafer-scale-accelerator cluster supports the 10k-sample biobank-scale extension. Memory headroom permits $|B_\ell|=8192$ and $K=12$ flow blocks without recompilation. The full FLOP and memory accounting is reported in Appendix~\ref{app:arch}.
+
+% ============================================================

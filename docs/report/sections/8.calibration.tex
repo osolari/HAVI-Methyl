@@ -1,0 +1,43 @@
+\section{Calibration}
+\label{sec:calibration}
+
+\subsection{Posterior predictive distribution}
+Given a fitted variational posterior, the posterior predictive for a new methylated-CpG count is
+\begin{equation}
+p(n^{m,\mathrm{new}}\mid F) = \int \BB\big(n^{m,\mathrm{new}};n^{\mathrm{cpg}},\kappa\sigm(\eta),\kappa(1-\sigm(\eta))\big)\,q(\eta\mid F)\,d\eta,
+\end{equation}
+where the marginal $q(\eta\mid F)$ is obtained by integrating the structured family \eqref{eq:varfamily} over the population and sample-shift posteriors:
+\begin{equation}
+q(\eta_{s,\ell}\mid F) = \int q_\phi(\eta_{s,\ell}\mid F_{s,\ell};m_\ell,m_s^\delta)\,q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)\,q_{\nu_s}(\delta_s)\,d\mu^{\mathrm{pop}}_\ell\,d\delta_s.
+\end{equation}
+We estimate the resulting integrals by Monte Carlo over flow samples and Gaussian draws from $q_{\lambda_\ell}$ and $q_{\nu_s}$. We use the posterior predictive for posterior-predictive checks: histograms of held-out $n^m/n^{\mathrm{cpg}}$ should lie within the 95\% predictive interval of the simulated data.
+
+\subsection{Conformal prediction wrapper}
+For distribution-free coverage, we wrap HAVI-Methyl with split-conformal prediction \citep{vovk2005,lei2018conformal}. Given a calibration set of $(F_i,\beta^*_i)$ pairs and the model's predictive density $\hat f_i(\beta)=q(\beta\mid F_i)$, we form nonconformity scores $r_i = -\log \hat f_i(\beta^*_i)$ and produce the prediction set
+\begin{equation}
+C(F_{\mathrm{new}}) = \{\beta:\,-\log\hat f_{\mathrm{new}}(\beta)\le \hat q_{1-\alpha}\},
+\end{equation}
+where $\hat q_{1-\alpha}$ is the $\lceil(1-\alpha)(|\mathcal{I}_{\mathrm{cal}}|+1)\rceil$-th smallest value of $\{r_i\}$. The finite-sample correction $(1-\alpha)(1+1/|\mathcal{I}_{\mathrm{cal}}|)$ in the empirical-quantile formula is the exchangeability-based adjustment that ensures the marginal coverage in Proposition~\ref{prop:conformal} holds in finite samples; without it, the bound would be only asymptotic.
+
+\begin{proposition}[Marginal coverage of the conformal wrapper]
+\label{prop:conformal}
+For any joint distribution of $(F,\beta^*)$ and any model $q(\beta\mid F)$, if calibration and test points are exchangeable, the conformal set $C(F_{\mathrm{new}})$ satisfies $\Pr(\beta^*_{\mathrm{new}}\in C(F_{\mathrm{new}}))\ge 1-\alpha$.
+\end{proposition}
+\begin{proof}
+Direct corollary of \citet{vovk2005}, Theorem 2.1. Exchangeability of the nonconformity ranks gives the bound by symmetry: $\Pr(R_{\mathrm{new}}>\hat q_{1-\alpha})\le\alpha$ where $R_{\mathrm{new}}$ is the test point's rank.
+\end{proof}
+
+\subsection{Conformal quantile regression alternative}
+The negative-log-density nonconformity score $r_i=-\log\hat f_i(\beta^*_i)$ produces non-symmetric prediction sets that favor high-density regions. For methylation, where calibration on tail $\beta$ values near 0 or 1 matters disproportionately, this can produce systematically narrower intervals at the tails. An alternative is conformal quantile regression \citep{romano2019cqr}, which uses lower- and upper-quantile predictions $\hat q_{\alpha/2}(F)$ and $\hat q_{1-\alpha/2}(F)$ from a quantile regressor and forms the conformity score
+\begin{equation}
+r_i^{\mathrm{CQR}}=\max\big\{\hat q_{\alpha/2}(F_i)-\beta^*_i,\;\beta^*_i-\hat q_{1-\alpha/2}(F_i)\big\}.
+\end{equation}
+The resulting interval is locally adaptive: it widens automatically in regions of high predictive uncertainty and narrows where the model is confident, while preserving the marginal coverage guarantee of Proposition~\ref{prop:conformal}. We report results for both nonconformity scores in our benchmarking plan.
+
+\subsection{Conditional coverage}
+Marginal coverage (Proposition~\ref{prop:conformal}) is the guarantee the conformal wrapper provides, but reviewers and clinicians often care about \emph{conditional} coverage: $\Pr(\beta^*\in C(F)\mid F=f)\ge 1-\alpha$ uniformly in $f$. The negative results of \citet{foygelbarber2021limits} show that distribution-free conditional coverage at any nontrivial level is impossible for any algorithm. Locally-adaptive variants—Mondrian conformal prediction with strata defined by coverage or chromatin context, conformal quantile regression, and importance-weighted conformal—provide partial conditional guarantees, in the sense of approximate conditional coverage averaged over strata. We adopt Mondrian stratification by coverage decile in our reporting, and additionally report worst-stratum coverage as a stress-test metric. The recent monograph of \citet{angelopoulos2023conformal} provides a unified treatment of these locally-adaptive variants.
+
+\subsection{Conformal risk control}
+A second extension relevant to clinical translation is conformal risk control \citep{angelopoulos2024crc}: rather than guaranteeing a coverage probability, conformal risk control guarantees that the expectation of an arbitrary monotone loss is bounded above. For methylation prediction, the relevant asymmetric loss penalizes false-negative misses of tumor-suppressor hypomethylation more heavily than false-positive flags of normal CpGs, because missed disease signal has higher clinical cost than overcalling. We report conformal risk control bounds at multiple loss levels in addition to the standard coverage metric. The construction follows \citet{angelopoulos2024crc}: the empirical risk on the calibration set is inflated by a finite-sample correction and used to threshold predictions on the test set, giving a high-probability bound on test-set risk under the same exchangeability assumption as marginal coverage.
+
+% ============================================================

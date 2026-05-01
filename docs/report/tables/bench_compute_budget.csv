@@ -1,0 +1,9 @@
+item,value
+ISAB FLOPs per step,2.147e+10
+Flow forward FLOPs per step,6.442e+09
+Total FLOPs per step,2.792e+10
+Sustained throughput (TFLOPs/s),100.0
+Steps per second,3582
+"Steps per epoch (L=30M, |B_l|=4096)",7324
+Wall time per epoch (s),2
+Wall time per epoch (min),0.0

@@ -1,0 +1,4 @@
+configuration,partial_r2_prior
+"No regularization (VIB off, mQTL off)",0.023004915121871305
+VIB only (beta_VIB=0.3),0.0024875093133238657
+VIB + mQTL anchors,0.00015309896422333047

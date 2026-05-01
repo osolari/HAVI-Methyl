@@ -1,0 +1,33 @@
+\section{cfDNA Fragmentation Simulator}
+\label{sec:simulator}
+
+We introduce a chromatin-aware cfDNA simulator that produces paired ground-truth methylation and WGS fragments. The pipeline is: chromatin state $\to$ nucleosome positioning $\to$ MNase-like fragmentation $\to$ end repair / adapter ligation $\to$ sequencing. The simulator takes a per-CpG ground-truth methylation track $\beta\in[0,1]^L$ as input, drawn from a public reference atlas (Loyfer-2023 in our setup \citealp{loyfer2023}), together with a chromatin-state annotation and a reference genome assembly (hg38). It outputs a bag of fragments per locus together with their per-fragment features and a per-CpG ground-truth methylation indicator.
+
+\begin{lstlisting}[style=py,caption={cfDNA fragmentation simulator (algorithmic skeleton). Full specification in Appendix~\ref{app:sim}.}]
+def simulate_cfDNA(genome, chromatin, methylation, n_frag, params):
+    fragments = []
+    # 1. Sample nucleosome positions from a stationary point process
+    nucs = sample_nucleosomes(chromatin, params.spacing_mean, params.spacing_sd)
+    for _ in range(n_frag):
+        # 2. Pick a fragmentation site biased toward linker DNA
+        cut1 = sample_cut(nucs, params.linker_bias, params.periodicity_104)
+        # 3. Sample fragment length from a mixture of mono/di/tri-nucleosomal Gaussians
+        L = sample_length_mixture(params.mu_lengths, params.sigma_lengths, params.weights)
+        cut2 = cut1 + L
+        # 4. End-motif sampling from sequence- and methylation-conditioned categorical
+        local_meth = methylation[cut1-2 : cut1+2].mean()
+        motif5 = sample_motif(genome, cut1, local_meth, params.motif_logits)
+        motif3 = sample_motif(genome, cut2, local_meth, params.motif_logits)
+        # 5. End repair, adapter, sequencing error
+        seq = simulate_sequencing(genome[cut1:cut2], params.error_rate)
+        fragments.append(Fragment(cut1, cut2, L, motif5, motif3, seq))
+    # 6. Coverage as Negative-Binomial conditioned on GC and methylation
+    coverage = sample_NB_coverage(genome, methylation, params.r, params.disp)
+    return fragments, coverage
+\end{lstlisting}
+
+Parameters are drawn from \citet{snyder2016} (length distribution: mode 167~bp, secondary mode at 332~bp, $10.4$~bp periodicity), \citet{zhou2022} (end-motif logits trained on plasma data), and \citet{loyfer2023} (methylation atlases for ground truth $\beta$). The full algorithmic specification, with each helper function defined explicitly together with its parameter table and literature source, is in Appendix~\ref{app:sim}.
+
+\paragraph{Validation.} The simulator is validated against published cfDNA distributions on three axes. First, the simulated fragment-length distribution should reproduce the canonical mononucleosomal mode at $167$~bp and secondary modes at $332$~bp and $\sim 500$~bp \citep{snyder2016}. Second, the simulated end-motif frequencies at the 5' end should match published plasma WGS distributions, with the four most abundant 4-mers (CCCA, CCAG, CCTG, CCAA) accounting for approximately $20\%$ of cuts in healthy plasma \citep{zhou2022}. Third, the autocorrelation of cut sites should exhibit the canonical $10.4$~bp periodicity peak. Validation plots and quantitative comparisons are reported in Appendix~\ref{app:simvalidation}.
+
+% ============================================================

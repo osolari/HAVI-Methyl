@@ -1,0 +1,8 @@
+method,pearson_r,spearman_r,auc_meth_at_0p5,ece_credible,icc_2_1,dmr_f1,_status
+HAVI-Methyl (full),XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md
+HAVI-Methyl (no flow),XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md
+HAVI-Methyl (no VIB),XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md
+FinaleMe,XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md
+DeepCpG,XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md
+Elastic-net regression,XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md
+MethylBERT,XX,XX,XX,XX,XX,XX,Requires EGA-controlled FinaleMe dataset; placeholder per repo.md

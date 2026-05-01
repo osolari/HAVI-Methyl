@@ -1,0 +1,53 @@
+\section{Architecture details}
+\label{app:arch}
+
+This appendix provides a detailed accounting of the HAVI-Methyl architecture, including parameter counts, dimensions, and the data flow from raw fragments to per-locus posterior. Table~\ref{tab:arch} enumerates every trainable component.
+
+\begin{table}[h]
+\centering\small
+\caption{HAVI-Methyl architecture. Parameter counts assume hidden dim $d_c=128$, $L_e=2$ ISAB layers, $K=6$ NSF blocks with 8 spline bins, and $T=64$ tissue components. Frozen modules (HyenaDNA, GoDMC anchors) are not counted.}
+\label{tab:arch}
+\begin{tabular}{llrr}
+\toprule
+Component & Specification & Output dim & Trainable params \\
+\midrule
+\multicolumn{4}{l}{\emph{Fragment encoder}} \\
+\quad ISAB layer 1 & 4 heads, $m=64$ inducing points, hidden 128 & $128$ & $\sim 100$K \\
+\quad ISAB layer 2 & 4 heads, $m=64$ inducing points, hidden 128 & $128$ & $\sim 100$K \\
+\quad PMA pool ($k=1$) & 4 heads, hidden 128 & $128$ & $\sim 50$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Sequence encoder (one of)}} \\
+\quad Dilated CNN & 6 layers, kernel 7, dilations $\{1,2,4,8,16,32\}$ & $128$ & $\sim 200$K \\
+\quad HyenaDNA proj. & frozen 256-d $\to$ 128-d linear & $128$ & $\sim 30$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Context fusion}} \\
+\quad Concat + MLP & $[c^{\mathrm{frag}}\,\|\,c^{\mathrm{seq}}\,\|\,m_\ell\,\|\,m_s^\delta] \to 128$ & $128$ & $\sim 70$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Normalizing flow posterior}} \\
+\quad NSF block $\times K=6$ & rational-quadratic, 8 bins, hidden 128 & $1$ (logit-$\beta$) & $\sim 700$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Likelihood heads}} \\
+\quad Beta-Binomial sufficient-stat head & 1 layer, dim 64 & $1$ ($n^m$) & $\sim 10$K \\
+\quad End-motif categorical head & 256-way softmax & $256$ & $\sim 30$K \\
+\quad Coverage NB head & 2-layer MLP, hidden 64 & $1$ ($\log\mu$) & $\sim 10$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Tissue-of-origin head}} \\
+\quad Dirichlet ($T=64$) & linear $\to T$, softplus & $64$ & $\sim 10$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Variational parameters (non-amortized)}} \\
+\quad Population $\lambda_\ell$ & $(m_\ell,v_\ell)$, $\ell=1,\dots,L\approx 30$M & $2L$ & $60$M (data-scale) \\
+\quad Sample shift $\nu_s$ & $(m_s^\delta,v_s^\delta)$, $s=1,\dots,S$ & $2S$ & $\sim S$ \\
+\midrule
+\textbf{Total trainable encoder/heads} & & & $\sim 1.0\,\text{M}$ \\
+\textbf{Total variational parameters} & & & $\sim 60\,\text{M}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The encoder and heads are about $1$~M trainable parameters, modest by deep-learning standards. The variational parameters dominate the parameter count, but they live on the wafer's weight-streaming memory and are updated by closed-form natural-gradient updates rather than backprop through Adam, so the optimizer state is much smaller than for an equivalently-sized neural network.
+
+\subsection*{Data flow}
+The end-to-end forward pass for one $(s,\ell)$ pair proceeds in stages. First, the per-fragment feature vectors $\{f_{s,\ell,j}\}_{j=1}^{n_{s,\ell}}$ are passed through two ISAB layers and pooled into a $128$-dimensional $c^{\mathrm{frag}}_{s,\ell}$. Second, the genome window $\pm 1$~kb around locus $\ell$ is encoded into a $128$-dimensional $c^{\mathrm{seq}}_\ell$ by either the dilated CNN or the frozen HyenaDNA projection. Third, the current variational means $m_\ell$ (population) and $m_s^\delta$ (sample shift) are concatenated with the two encoder outputs and passed through a small MLP into a unified $128$-dimensional context $c_{s,\ell}$. Fourth, $\epsilon\sim\N(0,1)$ is reparameterized through the $K=6$ NSF blocks conditioned on $c_{s,\ell}$ to produce $\eta_{s,\ell}$. Fifth, three likelihood heads are evaluated against the observed counts (Beta-Binomial), motifs (categorical), and coverage (NB), giving the per-locus reconstruction. Finally, the tissue-of-origin head consumes the per-sample posterior means across loci and produces a Dirichlet on tissue fractions.
+
+\subsection*{Memory footprint}
+At $|B_s|=8$ samples and $|B_\ell|=4096$ loci per step, the dominant memory consumption is the ISAB intermediate activations: $|B_s|\cdot|B_\ell|\cdot\bar n\cdot d_c\cdot L_e\approx 8\cdot 4096\cdot 20\cdot 128\cdot 2\approx 17$~MB per layer in float32, totaling about $35$~MB across the encoder. The flow forward and Jacobian add another $\sim 50$~MB. Activation checkpointing on the encoder brings the peak below $100$~MB per step, well within the $40$~GB on-wafer SRAM of the wafer-scale accelerator.

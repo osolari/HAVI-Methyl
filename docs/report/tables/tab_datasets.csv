@@ -1,0 +1,5 @@
+dataset,S,mean_coverage,paired_WGBS,access
+Liu et al. 2024 (FinaleMe),80,~1x,yes,EGA
+Sun 2015,32,~35x WGBS,WGBS-only,SRA
+Moss 2018,25,methylation array,N/A,GEO
+Loyfer 2023,39 cell types from 205 samples,WGBS atlas,N/A,GSE186458

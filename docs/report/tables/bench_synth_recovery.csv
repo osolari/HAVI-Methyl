@@ -1,0 +1,58 @@
+coverage,method,metric,value
+0.1,FinaleMe-style HMM,pearson,0.2088583175801075
+0.1,FinaleMe-style HMM,rmse,0.340786676426228
+0.1,FinaleMe-style HMM,mae,0.30378457878989445
+0.1,FinaleMe-style HMM,coverage_90,0.684375
+0.1,FinaleMe-style HMM,mean_width,0.7939979898452333
+0.1,FinaleMe-style HMM,pearson_cpgpoor,0.11936347993864002
+0.1,HAVI-Methyl,pearson,0.2762210756747436
+0.1,HAVI-Methyl,rmse,0.3293258448095346
+0.1,HAVI-Methyl,mae,0.29561234291965455
+0.1,HAVI-Methyl,coverage_90,0.375
+0.1,HAVI-Methyl,mean_width,0.5067197554477822
+0.1,HAVI-Methyl,pearson_cpgpoor,0.17442259784255906
+0.1,ELBO_final,elbo_final,-0.26436106017791394
+1.0,FinaleMe-style HMM,pearson,0.5321531218273303
+1.0,FinaleMe-style HMM,rmse,0.30027662168760527
+1.0,FinaleMe-style HMM,mae,0.23203990270082137
+1.0,FinaleMe-style HMM,coverage_90,0.44375
+1.0,FinaleMe-style HMM,mean_width,0.4242861068259958
+1.0,FinaleMe-style HMM,pearson_cpgpoor,0.5491673942877334
+1.0,HAVI-Methyl,pearson,0.7379176924172485
+1.0,HAVI-Methyl,rmse,0.2242431430230008
+1.0,HAVI-Methyl,mae,0.1849931286978001
+1.0,HAVI-Methyl,coverage_90,0.659375
+1.0,HAVI-Methyl,mean_width,0.43601912028306744
+1.0,HAVI-Methyl,pearson_cpgpoor,0.7745129156717913
+1.0,ELBO_final,elbo_final,-1.1175498893889713
+5.0,FinaleMe-style HMM,pearson,0.8132185484495941
+5.0,FinaleMe-style HMM,rmse,0.1863577696203277
+5.0,FinaleMe-style HMM,mae,0.1448510495742881
+5.0,FinaleMe-style HMM,coverage_90,0.59375
+5.0,FinaleMe-style HMM,mean_width,0.33431701197251357
+5.0,FinaleMe-style HMM,pearson_cpgpoor,0.8879705083559444
+5.0,HAVI-Methyl,pearson,0.8765234582778734
+5.0,HAVI-Methyl,rmse,0.15899519443559534
+5.0,HAVI-Methyl,mae,0.12830720929641984
+5.0,HAVI-Methyl,coverage_90,0.596875
+5.0,HAVI-Methyl,mean_width,0.26943647091390055
+5.0,HAVI-Methyl,pearson_cpgpoor,0.9330673341483202
+5.0,ELBO_final,elbo_final,-1.538277020094665
+30.0,FinaleMe-style HMM,pearson,0.9736677149322935
+30.0,FinaleMe-style HMM,rmse,0.10297618411970291
+30.0,FinaleMe-style HMM,mae,0.08867622101821938
+30.0,FinaleMe-style HMM,coverage_90,0.45625
+30.0,FinaleMe-style HMM,mean_width,0.16608223948234951
+30.0,FinaleMe-style HMM,pearson_cpgpoor,0.9591773847371003
+30.0,HAVI-Methyl,pearson,0.9757897018988432
+30.0,HAVI-Methyl,rmse,0.10236365477888315
+30.0,HAVI-Methyl,mae,0.08870342735567954
+30.0,HAVI-Methyl,coverage_90,0.346875
+30.0,HAVI-Methyl,mean_width,0.12260222880624247
+30.0,HAVI-Methyl,pearson_cpgpoor,0.9621451025046095
+30.0,ELBO_final,elbo_final,-2.7807507942657423
+identifiability,leak_no_vib,partial_r2,0.026595137485345366
+identifiability,leak_vib_only,partial_r2,0.0028751323147769847
+identifiability,leak_vib_plus_mqtl,partial_r2,0.00017679642172341303
+tissue,rmse_baseline,rmse,0.18979869420549872
+tissue,rmse_havi,rmse,0.02053943474644163

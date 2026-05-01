@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "havi-methyl"
+version = "0.1.0"
+description = "Hierarchical Amortized Variational Inference for Methylation Prediction from cfDNA Fragmentomics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "Omid Shams Solari", email = "omid.solari@saimai.com"},
+]
+keywords = ["methylation", "cfDNA", "variational-inference", "bayesian", "fragmentomics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+  "numpy>=1.24",
+  "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+torch = ["torch>=2.0"]
+experiments = [
+  "matplotlib>=3.7",
+  "pandas>=2.0",
+]
+foundation = [
+  "transformers>=4.30",
+  "datasets>=2.10",
+]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "ruff>=0.1.0",
+  "mypy>=1.0",
+  "pre-commit>=3.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/saimai/havi-methyl"
+Documentation = "https://github.com/saimai/havi-methyl/blob/main/README.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  "docs/report/code",  # vendored harness from the manuscript deliverable
+  "notebooks",          # generated outputs interleave with source
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B"]
+# Math-symbol names (S, L, K, D, F, HM, ...) intentionally violate PEP 8 naming.
+ignore = ["E501", "N803", "N806", "N812", "N817"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802"]   # math-style test names like test_KL_zero_when_equal
+"scripts/_common.py" = ["F401"]   # re-exports for sibling scripts
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_configs = true
+# Numpy's type stubs surface strict-narrowing errors (NDArray[np.intp] vs
+# NDArray[np.float64], ArrayLike->ndarray narrowing, etc.) that are routine
+# at API boundaries in scientific Python and don't reflect real bugs.
+disable_error_code = ["arg-type", "list-item", "union-attr", "return-value"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]

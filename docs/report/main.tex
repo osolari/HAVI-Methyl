@@ -1,0 +1,92 @@
+\pdfobjcompresslevel=0
+\documentclass[11pt]{saim}
+\input{math_commands.tex}
+
+% ----- Additional packages required by the manuscript -----
+\usepackage{url}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{longtable,tabularx}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{bayesnet,positioning,fit,arrows.meta}
+
+% ----- Listings style for code blocks -----
+\definecolor{codegray}{RGB}{120,120,120}
+\definecolor{codeaccent}{RGB}{50,18,122}
+\lstdefinestyle{py}{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codeaccent}\bfseries,
+  commentstyle=\color{codegray}\itshape,
+  stringstyle=\color{black},
+  language=Python,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{codegray!50},
+  numbers=left,
+  numberstyle=\tiny\color{codegray}
+}
+
+% ----- Takeaway-box environment for highlighted callouts -----
+\newtcolorbox{takeawaybox}{
+  enhanced,
+  colback=saimbg!40,
+  colframe=saimindigo!70,
+  boxrule=0.5pt,
+  arc=2pt,
+  left=8pt,
+  right=8pt,
+  top=6pt,
+  bottom=6pt,
+  before skip=6pt,
+  after skip=6pt
+}
+
+% ----- Title block metadata -----
+\title{HAVI-Methyl: Hierarchical Amortized Variational Inference\\for Methylation Prediction from Cell-Free DNA Fragmentomics}
+\author[1]{Omid Shams Solari}
+\affiliation[1]{sAIm Labs}
+\correspondence{\email{omid.solari@saimai.com}}
+
+\input{sections/0-abstract.tex}
+
+\begin{document}
+\maketitle
+
+\tableofcontents
+
+\input{sections/1.intro.tex}
+\input{sections/2.background.tex}
+\input{sections/3.model.tex}
+\input{sections/4.varfamily.tex}
+\input{sections/5.elbo.tex}
+\input{sections/6.algorithm.tex}
+\input{sections/7.identifiability.tex}
+\input{sections/8.calibration.tex}
+\input{sections/9.tissue.tex}
+\input{sections/10.simulator.tex}
+\input{sections/11.synth.tex}
+\input{sections/12.benchmark.tex}
+\input{sections/13.theory.tex}
+\input{sections/14.discussion.tex}
+\input{sections/15.related.tex}
+\input{sections/16.conclusion.tex}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\beginappendix
+\input{sections/appendix/A-elbo.tex}
+\input{sections/appendix/B-vbhmm.tex}
+\input{sections/appendix/C-reparam.tex}
+\input{sections/appendix/D-architecture.tex}
+\input{sections/appendix/E-simulator.tex}
+\input{sections/appendix/F-hyperparams.tex}
+\input{sections/appendix/G-glossary.tex}
+\input{sections/appendix/H-validation.tex}
+\input{sections/appendix/I-extended-results.tex}
+
+\end{document}

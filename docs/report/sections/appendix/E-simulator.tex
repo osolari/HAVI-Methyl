@@ -1,0 +1,69 @@
+\section{Synthetic simulator full specification}
+\label{app:sim}
+
+This appendix gives the full algorithmic specification of the chromatin-aware cfDNA simulator summarized in Section~\ref{sec:simulator}. The simulator is implemented in Python and released alongside the paper; the specification here is the formal description of its behavior, with each helper function defined explicitly together with its parameter table and the published source from which the parameters were drawn.
+
+\subsection*{Inputs}
+The simulator takes four inputs: a reference genome assembly (hg38 in our setup); a chromatin-state annotation, taken from the 15-state Roadmap Epigenomics ChromHMM model and used to bias nucleosome positioning; a per-CpG ground-truth methylation track $\beta\in[0,1]^L$ from a public reference atlas (we use Loyfer-2023 \citep{loyfer2023}); and a parameter dictionary controlling fragmentation, sequencing, and coverage.
+
+\subsection*{Step 1: Nucleosome positioning}
+We sample nucleosome positions from a stationary one-dimensional point process with two ingredients. First, a renewal process with mean spacing $187$~bp (the canonical inter-nucleosome distance in mammalian chromatin) and standard deviation $25$~bp. Second, a Strauss process \citep{strauss1975process} with interaction parameter $\gamma=0.1$ that imposes nucleosome-nucleosome repulsion at distances below $147$~bp (the nucleosome-DNA wrap length). The two combine to produce realistic positioning statistics that reproduce the canonical $200$~bp peak in the empirical spacing distribution.
+
+\subsection*{Step 2: Fragmentation cuts}
+Cut sites are sampled from a probability density biased toward linker DNA between nucleosomes:
+\begin{equation}
+p_{\mathrm{cut}}(x) \propto \exp\!\big(-d_{\mathrm{nuc}}(x)/\sigma_{\mathrm{nuc}}\big)\cdot\big[1 + a\cos(2\pi d_{\mathrm{nuc}}(x)/10.4)\big],
+\end{equation}
+where $d_{\mathrm{nuc}}(x)$ is the distance from $x$ to the nearest nucleosome center, $\sigma_{\mathrm{nuc}}=20$~bp is the cut-site rolloff, $a=0.3$ is the periodicity amplitude, and the $10.4$~bp period reflects the rotational positioning of DNA around the nucleosome. The first term concentrates cut sites in linker DNA; the second imprints the canonical $10.4$~bp periodicity observed in cfDNA fragment-length distributions.
+
+\subsection*{Step 3: Fragment-length distribution}
+Fragment lengths $L$ are sampled from a three-component Gaussian mixture corresponding to mono-, di-, and tri-nucleosomal fragments:
+\begin{equation}
+p(L) = 0.7\,\N(167, 15^2) + 0.2\,\N(332, 30^2) + 0.1\,\N(500, 80^2).
+\end{equation}
+Parameters are drawn from \citet{snyder2016}, which characterizes plasma cfDNA fragment-length distributions across healthy individuals.
+
+\subsection*{Step 4: End-motif sampling}
+The 4-mer end motif at each cut site is sampled from a categorical distribution over the $256$ possible 4-mers, with logits conditioned on both the local genome sequence and the local methylation state:
+\begin{equation}
+m_{\mathrm{cut}} \sim \Cat\!\big(\mathrm{softmax}(W_{\mathrm{seq}}\,\mathrm{onehot}(g_{\mathrm{cut}}) + W_{\mathrm{meth}}\,\beta_{\mathrm{cut}})\big),
+\end{equation}
+where $g_{\mathrm{cut}}$ is the four-base genome sequence at the cut site and $\beta_{\mathrm{cut}}$ is the local methylation. The motif logits are calibrated against the empirical 4-mer distribution from \citet{zhou2022}: the four most abundant motifs (CCCA, CCAG, CCTG, CCAA) account for approximately $20\%$ of cuts in healthy plasma, and methylated cut sites show a $\sim 1.4\times$ enrichment for CG-containing motifs relative to unmethylated.
+
+\subsection*{Step 5: Sequencing simulation}
+End-repair and adapter ligation are modeled by appending a fixed $5$-bp adapter to each fragment end and applying a $1\%$ per-base substitution error rate (matching the typical Illumina NovaSeq error profile). Paired-end $150$~bp reads are emitted from each fragment, with read 1 aligned to the $5'$ end and read 2 to the $3'$ end. Fragments shorter than $150$~bp emit overlapping read pairs.
+
+\subsection*{Step 6: Coverage sampling}
+Per-locus fragment counts are sampled from a Negative-Binomial distribution conditioned on GC content and methylation:
+\begin{equation}
+n_{s,\ell}\sim\NB(r=2,\,p_\ell),\quad p_\ell = \mathrm{logit}^{-1}\!\big(b_0 + b_{\mathrm{GC}}\,\mathrm{GC}_\ell + b_\beta\,\beta_{s,\ell}\big),
+\end{equation}
+with coefficients $b_0,b_{\mathrm{GC}},b_\beta$ chosen to reproduce the empirical mean coverage and the GC-bias and methylation-bias regression coefficients reported in \citet{snyder2016}.
+
+\subsection*{Parameter table}
+\begin{table}[h]
+\centering\small
+\caption{Simulator parameter table with sources.}
+\label{tab:simparams}
+\begin{tabular}{lll}
+\toprule
+Parameter & Value & Source \\
+\midrule
+Nucleosome spacing mean & $187$~bp & Empirical chromatin biology \\
+Nucleosome spacing std & $25$~bp & Empirical chromatin biology \\
+Strauss interaction $\gamma$ & $0.1$ & Strauss 1975 \\
+Cut-site rolloff $\sigma_{\mathrm{nuc}}$ & $20$~bp & Inferred from cfDNA \\
+Periodicity amplitude $a$ & $0.3$ & Snyder et al. 2016 \\
+Periodicity period & $10.4$~bp & Helical pitch of B-DNA \\
+Length mixture mode 1 & $\N(167, 15^2)$ & Snyder et al. 2016 \\
+Length mixture mode 2 & $\N(332, 30^2)$ & Snyder et al. 2016 \\
+Length mixture mode 3 & $\N(500, 80^2)$ & Snyder et al. 2016 \\
+Per-base error rate & $1\%$ & Illumina NovaSeq spec \\
+Read length & $150$~bp paired-end & Illumina NovaSeq spec \\
+NB dispersion $r$ & $2$ & Snyder et al. 2016 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Computational cost}
+At $S=80$ samples and $L=10^5$ loci, simulation completes in approximately $30$ minutes on a single CPU thread; full $L\approx 30$M run is approximately $4$ hours single-threaded but trivially parallelizes by chromosome. The released implementation includes a multiprocessing wrapper that scales linearly with thread count.

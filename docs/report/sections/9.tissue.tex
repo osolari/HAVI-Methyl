@@ -1,0 +1,29 @@
+\section{Tissue-of-Origin Head}
+\label{sec:too}
+
+\subsection{Joint Dirichlet output with posterior integration}
+For tissue-of-origin (ToO) deconvolution we attach a head that takes the per-locus methylation latent $\beta_{s,\ell}$ and a reference matrix $R\in[0,1]^{T\times L}$ (tissue $\times$ locus) and outputs a Dirichlet posterior on tissue fractions
+\begin{equation}
+\bm{\pi}_s\sim\Dir(\bm{\alpha}_s),\quad \bm{\alpha}_s = \mathrm{softplus}(W_R\,\E_q[\bbeta_s] + b_R).
+\end{equation}
+Crucially, the tissue likelihood is integrated against the variational posterior $q(\bbeta_s)$ rather than evaluated at a plug-in posterior mean:
+\begin{equation}
+\mathcal{L}_{\mathrm{ToO}}(s) = \sum_\ell \E_{q(\beta_{s,\ell})}\!\big[\log\N(\beta_{s,\ell};\,R^\top\bm\pi_s,\,\sigma_R^2)\big],
+\end{equation}
+which under a Gaussian approximation $q(\beta_{s,\ell})\approx\N(\hat\mu_{s,\ell},\hat\sigma^2_{s,\ell})$ has the closed form
+\begin{equation}
+\mathcal{L}_{\mathrm{ToO}}(s) = \sum_\ell \log\N(\hat\mu_{s,\ell};R^\top\bm\pi_s,\sigma_R^2+\hat\sigma^2_{s,\ell}) - \frac{1}{2}\log\!\frac{\sigma_R^2+\hat\sigma^2_{s,\ell}}{\sigma_R^2}.
+\end{equation}
+Plugging in the posterior mean alone, as the original FinaleMe-derived QP deconvolution effectively does after binarization, discards the per-CpG uncertainty that the framework went to such trouble to produce. Integrating over the variational posterior preserves it and propagates it correctly into the tissue-fraction credible intervals.
+
+\subsection{HDP nonparametric extension}
+For novel-tissue discovery, we replace the finite Dirichlet by a hierarchical Dirichlet process \citep{teh2006hdp,bleijordan2006variationaldp}: the tissue mixture is $\sum_{k=1}^\infty \pi_{s,k}\delta_{\theta_k}$ with $\bm\pi_s\sim\mathrm{GEM}(\alpha)$ and $\theta_k\sim H$. We implement this as a variational truncation at $T_{\max}=64$ following \citet{bleijordan2006variationaldp}, with stick-breaking weights $\pi_{s,k}=v_{s,k}\prod_{k'<k}(1-v_{s,k'})$ and $v_{s,k}\sim\Bet(1,\alpha)$. Components with posterior mass $\pi_{s,k}<10^{-3}$ are pruned at evaluation time. The truncation is a known approximation; we choose $T_{\max}=64$ because the Loyfer-2023 atlas \citep{loyfer2023} resolves 39 cell types from 205 healthy tissue samples and we wish to leave headroom for the discovery of additional components. If the true tissue diversity exceeds $T_{\max}$, the HDP collapses extra components onto the remaining stick-breaking mass and the recovered fractions become biased toward the truncation; this is detectable as posterior weight saturating on the highest-index components.
+
+\subsection{End-to-end training}
+The combined objective is
+\begin{equation}
+\mathcal{L}_{\mathrm{total}} = -\elbo - \beta_{\mathrm{VIB}}\KL_{\mathrm{VIB}} + \lambda_{\mathrm{cf}}\mathcal{L}_{\mathrm{cf}} + \lambda_{\mathrm{mQTL}}\mathcal{L}_{\mathrm{mQTL}} + \lambda_{\mathrm{ToO}}\mathcal{L}_{\mathrm{ToO}}.
+\end{equation}
+The weight $\lambda_{\mathrm{ToO}}$ controls the relative importance of the tissue-of-origin loss against the methylation reconstruction; default values for all weights are reported in Appendix~\ref{app:hparams}.
+
+% ============================================================

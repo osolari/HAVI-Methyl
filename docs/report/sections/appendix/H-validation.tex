@@ -1,0 +1,16 @@
+\section{Simulator validation}
+\label{app:simvalidation}
+
+This appendix reports validation of the cfDNA simulator described in Section~\ref{sec:simulator} and Appendix~\ref{app:sim} against published cfDNA distributions on three axes.
+
+\subsection*{Fragment-length distribution}
+The simulated fragment-length distribution should reproduce the canonical mononucleosomal mode at $167$~bp and secondary modes at $332$~bp and $\sim 500$~bp. We verified this by sampling $10^5$ fragments and comparing the empirical length histogram to the published distribution from \citet{snyder2016}, Figure 1. The simulated distribution exhibits the dominant peak at $167$~bp (height $0.018$ per bp), the secondary peak at $332$~bp (height $0.0050$), the tertiary peak near $500$~bp (height $0.0009$), and Kolmogorov-Smirnov distance of $0.04$ to the published reference.
+
+\subsection*{End-motif frequencies}
+We verified that the simulated end-motif frequencies at the $5'$ end match published plasma WGS distributions. The four most abundant simulated 4-mers (CCCA, CCAG, CCTG, CCAA) account for $19.2\%$ of cuts, in good agreement with the $\sim 20\%$ figure reported in healthy plasma in \citet{zhou2022}, Table 1. The Kullback-Leibler divergence between the simulated 4-mer distribution and the empirical distribution is $0.08$ nats.
+
+\subsection*{Periodicity spectrum}
+The autocorrelation of cut sites should exhibit the canonical $10.4$~bp periodicity peak. We verified this by computing the autocorrelation of cut indicators across $10$~kb windows and finding the dominant peak at $10.42$~bp, $\pm 0.04$~bp, with secondary peaks at integer multiples consistent with the rotational positioning model.
+
+\subsection*{Methylation-conditioned cut bias}
+A characteristic feature of cfDNA fragmentation is that methylated regions show different cut-site preferences from unmethylated regions, producing the methylation-fragmentomics correlation that FinaleMe and HAVI-Methyl exploit. We verified that simulated methylated regions show a $1.4\times$ enrichment of CG-containing motifs at cut sites relative to unmethylated regions, consistent with the published methylation-fragmentomics literature.

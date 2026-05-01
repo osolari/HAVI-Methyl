@@ -1,0 +1,24 @@
+section,symbol,value,description
+Model priors,mu_0,0.0,Population logit prior mean
+Model priors,tau_0,2.0,Population logit prior std
+Model priors,sigma_delta,0.5,Sample-shift std
+Model priors,sigma_eta,0.8,"Per-(s,l) latent std"
+Model priors,kappa,20.0,Beta-Binomial concentration
+Regularization,beta_VIB,1.0,VIB weight
+Regularization,lambda_cf,0.5,Counterfactual invariance
+Regularization,lambda_mQTL,0.2,mQTL anchor weight
+Regularization,lambda_ToO,1.0,Tissue-of-origin weight
+Architecture,d_c,128,Encoder hidden dim
+Architecture,L_e,2,ISAB layers
+Architecture,m,64,ISAB inducing points
+Architecture,K (flow),6,NSF stack depth
+Architecture,NSF bins,8,Spline knots per block
+Architecture,T_max,64,HDP truncation level
+Optimization,LR encoder,0.001,AdamW
+Optimization,weight decay,0.0001,AdamW
+Optimization,rho_t exponent,0.6,Robbins-Monro
+Optimization,|B_s|,8,Sample mini-batch size
+Optimization,|B_l|,4096,Locus mini-batch size
+Optimization,g_clip,5.0,Gradient clip norm
+IWAE,K_IWAE_train,1,Single-sample reparam
+IWAE,K_IWAE_finetune,8,DReG-IWAE

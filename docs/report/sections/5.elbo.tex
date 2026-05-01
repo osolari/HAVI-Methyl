@@ -1,0 +1,112 @@
+\section{ELBO Derivation}
+\label{sec:elbo}
+
+\subsection{Decomposition}
+Under the structured family \eqref{eq:varfamily}, the ELBO decomposes as
+\begin{align}
+\elbo &= \E_q[\log p(F\mid\bbeta)]
+       - \KL(q(\bdelta)\|p(\bdelta))
+       - \KL(q(\bm{\mu}^{\mathrm{pop}})\|p(\bm{\mu}^{\mathrm{pop}})) \nonumber\\
+      &\quad - \E_{q(\bm{\mu}^{\mathrm{pop}})q(\bdelta)}\big[\KL\big(q_\phi(\bbeta\mid F,\cdot)\,\|\,p(\bbeta\mid\bm{\mu}^{\mathrm{pop}},\bdelta)\big)\big].
+\label{eq:elbo-decomp}
+\end{align}
+Each term has a tractable form. The reconstruction is the sum of the three log-likelihoods in \eqref{eq:joint}; the population and sample KLs are Gaussian-Gaussian and closed-form; the conditional KL inside the expectation is computed by Monte Carlo using flow samples and \eqref{eq:flow-density}.
+
+\subsection{Reconstruction term}
+Let $\eta\sim q_\phi(\eta\mid c)$ and $\beta=\sigm(\eta)$. The reconstruction in the Beta-Binomial aggregate form is
+\begin{align}
+\E_q[\log p(F\mid\beta)]
+=\;& \E_q[\log\BB(n^m;n^{\mathrm{cpg}},\kappa\beta,\kappa(1-\beta))] \nonumber\\
+   &+ \sum_j \E_q[\log\Cat(m_j;\bpi(\beta, c^{\mathrm{seq}}))]
+    + \E_q[\log\NB(n^{\mathrm{frag}};r,p(\beta,\mathrm{GC},\mathrm{map}))].
+\label{eq:reconstruction}
+\end{align}
+The Beta-Binomial log-pmf is
+\begin{equation}
+\log\BB(k;n,\alpha,\gamma) = \log\binom{n}{k} + \log B(k+\alpha, n-k+\gamma) - \log B(\alpha,\gamma),
+\end{equation}
+where $B$ is the Beta function. The reparameterization gradient through $\beta=\sigm(\eta)$ uses the digamma identity
+\begin{equation}
+\nabla_\eta\log\BB = \kappa\,\sigm'(\eta)\big[\psi(k+\kappa\sigm(\eta)) - \psi(n-k+\kappa(1-\sigm(\eta))) - \psi(\kappa\sigm(\eta)) + \psi(\kappa(1-\sigm(\eta)))\big],
+\label{eq:bb-grad}
+\end{equation}
+where the cancellation of $\psi(n+\alpha+\gamma)$ and $\psi(\alpha+\gamma)$ terms is permitted by $d\alpha/d\beta+d\gamma/d\beta=0$. The categorical and Negative-Binomial gradients are
+\begin{align}
+\nabla_\eta\log\Cat(m_j;\bpi(\beta,c^{\mathrm{seq}}))
+  &= \sigm'(\eta)\,\frac{\partial \bpi(\beta,c^{\mathrm{seq}})_{m_j}}{\partial \beta}\,\frac{1}{\bpi(\beta,c^{\mathrm{seq}})_{m_j}},\\
+\nabla_\eta\log\NB(n;r,p(\beta,\cdot))
+  &= \sigm'(\eta)\,\frac{\partial p(\beta,\cdot)}{\partial \beta}\,\frac{n - rp/(1-p)}{p(1-p)},
+\end{align}
+each of which is automatically computed by reparameterization through autodiff.
+
+\subsection{KL terms}
+For the population layer, $q(\mu^{\mathrm{pop}}_\ell)=\N(m_\ell,v_\ell)$ and $p(\mu^{\mathrm{pop}}_\ell)=\N(\mu_0,\tau_0^2)$, so
+\begin{equation}
+\KL(q\|p) = \tfrac{1}{2}\!\left[\frac{v_\ell + (m_\ell-\mu_0)^2}{\tau_0^2} - 1 - \log\frac{v_\ell}{\tau_0^2}\right].
+\end{equation}
+The sample-shift KL is
+\begin{equation}
+\KL(q_{\nu_s}\|p) = \tfrac{1}{2}\!\left[\frac{v_s^\delta + (m_s^\delta)^2}{\sigma_\delta^2} - 1 - \log\frac{v_s^\delta}{\sigma_\delta^2}\right].
+\end{equation}
+The conditional KL on $\eta_{s,\ell}$ has no closed form because $q_\phi$ is a flow and $p(\eta\mid\bm{\mu}^{\mathrm{pop}},\delta)$ is Gaussian with conditional mean $\mu_{s,\ell}=\bar m_\ell+\bar m_s$. We estimate it by single-sample Monte Carlo:
+\begin{equation}
+\widehat{\KL}_{s,\ell} = \log q_\phi(\eta\mid c_{s,\ell}) - \log\N(\eta;\mu_{s,\ell},\sigma_\eta^2),\quad \eta=T_\phi(\epsilon;c_{s,\ell}).
+\label{eq:kl-mc}
+\end{equation}
+The variance of \eqref{eq:kl-mc} scales with the entropy of the flow posterior; in low-coverage regions where the posterior is broad this can become substantial. Section~\ref{ssec:iwae} discusses the IWAE remedy and the doubly-reparameterized estimator of \citet{tucker2019dreg} that further reduces gradient variance.
+
+\subsection{IWAE tightening and signal-to-noise caveat}
+\label{ssec:iwae}
+For loci with very low coverage, where the posterior is broad and the single-sample estimate has high variance, we use the importance-weighted bound \citep{burda2016iwae} with $K$ importance samples:
+\begin{equation}
+\elbo_K = \E\!\left[\log\frac{1}{K}\sum_{k=1}^K \frac{p(F,\eta^{(k)})}{q_\phi(\eta^{(k)}\mid c)}\right] \ge \elbo_1.
+\end{equation}
+\citet{rainforth2018iwaeSNR} showed that increasing $K$ has the counter-intuitive effect of \emph{degrading} the signal-to-noise ratio of the encoder gradient at rate $O(K^{-1/2})$, even as the bound itself tightens; the explanation is that the reparameterization gradient through the IWAE log-mean-exp gets dominated by the score-function term as $K$ grows. The doubly-reparameterized gradient estimator of \citet{tucker2019dreg} fixes this by replacing the encoder gradient with an estimator whose variance does not blow up with $K$. We use $K=1$ during early training (cheaper, lower-variance gradients for the encoder) and switch to $K=8$ with the DReG estimator for fine-tuning.
+
+\subsection{Reparameterization gradients}
+For an NSF block with rational-quadratic transform $T(\epsilon;c)$, the log-Jacobian is a sum of log-derivatives of the spline pieces; both $T$ and $\log|\det\nabla T|$ are differentiable in $\phi$ and $c$ and the spline derivative is computed automatically by autodiff (full derivation in Appendix~\ref{app:reparam}). The reparameterization gradient of the reconstruction is
+\begin{equation}
+\nabla_\phi \E_{\epsilon}[\log p(F\mid\sigm(T_\phi(\epsilon;c)))] = \E_\epsilon[\nabla_\phi \log p(F\mid\sigm(T_\phi(\epsilon;c)))],
+\end{equation}
+which is unbiased and low-variance. For the per-fragment Bernoulli likelihood, the chain $\eta\to\beta\to\log p(y\mid\beta)$ is straightforward; for the Beta-Binomial pseudo-likelihood the chain involves the digamma derivatives \eqref{eq:bb-grad}.
+
+\subsection{Approximate natural-gradient updates on the population layer}
+The population latents $\mu^{\mathrm{pop}}$ form a conditionally \emph{nearly} conjugate Gaussian layer: were the local layer $q(\eta_{s,\ell}\mid \mu^{\mathrm{pop}}_\ell,\delta_s)$ a Gaussian rather than a normalizing flow, the population layer would be exactly conjugate and \citet{hoffman2013svi} would give exact natural-gradient SVI. Because the local layer is a flow, exact conditional conjugacy is broken and the natural-gradient update is \emph{approximate}: we compute the natural-parameter target
+\begin{equation}
+\hat{\lambda}_\ell^{\mathrm{nat}} = \text{moment-match}\Big(\big\{\E_{q_\phi}[\eta_{s,\ell}-\bar m_s] : s\in B_s\Big\}\,;\,\text{prior}\Big),
+\label{eq:nat-target}
+\end{equation}
+treating the encoder posterior means as if they were direct Gaussian observations of $\mu^{\mathrm{pop}}_\ell$. The update is
+\begin{equation}
+\lambda_\ell^{(t+1)} = (1-\rho_t)\lambda_\ell^{(t)} + \rho_t\,\hat{\lambda}_\ell^{\mathrm{nat}},
+\label{eq:nat-update}
+\end{equation}
+with Robbins-Monro step sizes $\rho_t$ satisfying $\sum\rho_t=\infty$, $\sum\rho_t^2<\infty$. This is the non-conjugate generalization of natural-gradient SVI of \citet{khan2017cvi,lin2019natgrad}, and converges to a stationary point of the ELBO under the regularity conditions stated in Section~\ref{sec:theory}, Proposition~\ref{prop:svi}. The non-conjugacy correction is essential to the validity of the convergence proof; the bare statement of \citet{hoffman2013svi} would not apply.
+
+\subsection{Stochastic VI mini-batch rescaling}
+With $L\sim 30\,\text{M}$ CpGs and $S$ in the thousands at biobank scale, full-batch SVI is infeasible. The model has two plates ($S$ samples and $L$ loci) and the algorithm samples mini-batches of size $|B_s|$ and $|B_\ell|$ from each. The correct unbiased rescaling depends on which plates each ELBO term is summed over, and is summarized in Table~\ref{tab:rescale}. Conflating these factors—as is easy to do in a two-plate model—introduces systematic bias in the natural-gradient updates and can prevent convergence.
+
+\begin{table}[h]
+\centering\small
+\caption{Mini-batch rescaling factors for each ELBO term in the two-plate model. Mini-batches of size $|B_s|$ and $|B_\ell|$ are drawn from the sample plate and locus plate respectively.}
+\label{tab:rescale}
+\begin{tabular}{lll}
+\toprule
+ELBO term & Indexed by & Rescaling factor \\
+\midrule
+Reconstruction $\log p(F\mid\bbeta)$ summed over $(s,\ell)$ & $S\times L$ plate & $\dfrac{S\cdot L}{|B_s|\cdot|B_\ell|}$ \\[6pt]
+Population KL on $\bm{\mu}^{\mathrm{pop}}$ & $L$ plate & $\dfrac{L}{|B_\ell|}$ \\[6pt]
+Sample-shift KL on $\bdelta$ & $S$ plate & $\dfrac{S}{|B_s|}$ \\[6pt]
+Local KL on $\eta_{s,\ell}$ summed over $(s,\ell)$ & $S\times L$ plate & $\dfrac{S\cdot L}{|B_s|\cdot|B_\ell|}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Amortization gap}
+\label{ssec:amortization}
+\citet{cremer2018amortization} introduced the notion of the \emph{amortization gap}: the difference between the optimal per-instance variational posterior $q^*(\eta\mid F)$ and the amortized encoder's output $q_\phi(\eta\mid F)$. The amortized encoder shares parameters across all $(s,\ell)$ and therefore cannot in general match the per-instance optimum. Two practical mitigations are available. First, semi-amortized inference \citep{kim2018semiamortized} initializes from $q_\phi$ and runs a small number of gradient steps on the per-instance variational parameters; we use this as an evaluation-time refinement on hold-out data. Second, the encoder can be fine-tuned per sample at evaluation time using the held-out fragment bag, at the cost of a forward-backward pass per locus; this is appropriate when sample-level prediction quality matters more than throughput. We monitor the amortization gap during training by comparing the held-out ELBO under $q_\phi$ to the held-out ELBO under semi-amortized refinement.
+
+\subsection{Complexity}
+Per step, the encoder forward is $O(|B_s||B_\ell|\bar n d_c)$ where $\bar n$ is mean fragments per locus; the flow forward and Jacobian is $O(|B_s||B_\ell|K d_c)$; KL evaluations are $O(|B_s||B_\ell|)$. Memory is dominated by Set Transformer activations. Plain self-attention blocks (SAB) cost $O(\bar n^2)$ memory per locus; we use induced-set attention blocks (ISAB) of \citet{lee2019settransformer} with $m=64$ inducing points, yielding $O(\bar n m)$. SAB and ISAB are distinct architectural choices: SAB applies multi-head self-attention over the fragments themselves, while ISAB uses $m$ trainable inducing points as a compressed bottleneck. ISAB is asymptotically cheaper and we use it throughout.
+
+% ============================================================

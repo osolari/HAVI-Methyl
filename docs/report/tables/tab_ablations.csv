@@ -1,0 +1,7 @@
+configuration,VB_HMM,BetaBin,Hierarchy,Flow,VIB,Conformal
+1. VB-HMM only,yes,,,,,
+2. + Beta-Binomial likelihood,yes,yes,,,,
+3. + hierarchical SVI,yes,yes,yes,,,
+4. + amortized flow posterior,yes,yes,yes,yes,,
+5. + VIB de-confounding,yes,yes,yes,yes,yes,
+6. + conformal wrapper (full),yes,yes,yes,yes,yes,yes

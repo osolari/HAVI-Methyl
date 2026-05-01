@@ -1,0 +1,41 @@
+\section{Reparameterization gradients}
+\label{app:reparam}
+
+This appendix derives the reparameterization gradients used throughout HAVI-Methyl. We treat the Gaussian variational layers, the rational-quadratic spline of the neural-spline-flow encoder, the sticking-the-landing variant, and the doubly-reparameterized gradient (DReG) estimator for the IWAE bound.
+
+\subsection*{Gaussian variational layers}
+For the population layer $q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)=\N(m_\ell,v_\ell)$, the reparameterization is $\mu^{\mathrm{pop}}_\ell = m_\ell + \sqrt{v_\ell}\,\xi$ with $\xi\sim\N(0,1)$. The gradient of any expectation $g(\mu^{\mathrm{pop}}_\ell)$ with respect to the variational parameters is
+\begin{equation}
+\nabla_{m_\ell}\E[g] = \E[\nabla g],\quad \nabla_{v_\ell}\E[g] = \frac{1}{2\sqrt{v_\ell}}\E[\xi\,\nabla g],
+\end{equation}
+both unbiased. The same form applies to the sample-shift layer with $(m_s^\delta,v_s^\delta)$.
+
+\subsection*{Rational-quadratic spline (NSF) and its log-Jacobian}
+A neural-spline-flow block \citep{durkan2019nsf} is a piecewise rational-quadratic transform $T:[-B,B]\to[-B,B]$ parameterized by $K$ knots $\{(x_k,y_k)\}_{k=0}^K$ and $K-1$ interior derivatives $\{d_k\}_{k=1}^{K-1}$, with $d_0=d_K=1$ for tail behavior. Within bin $k$, with $\xi_k=(x-x_k)/(x_{k+1}-x_k)$ and $s_k=(y_{k+1}-y_k)/(x_{k+1}-x_k)$,
+\begin{equation}
+T(x) = y_k + \frac{(y_{k+1}-y_k)\big(s_k\xi_k^2+d_k\xi_k(1-\xi_k)\big)}{s_k+(d_{k+1}+d_k-2s_k)\xi_k(1-\xi_k)}.
+\end{equation}
+The log-Jacobian within bin $k$ is
+\begin{equation}
+\log\frac{dT}{dx} = 2\log s_k + \log\!\big(d_{k+1}\xi_k^2 + 2s_k\xi_k(1-\xi_k) + d_k(1-\xi_k)^2\big) - 2\log\!\big(s_k+(d_{k+1}+d_k-2s_k)\xi_k(1-\xi_k)\big),
+\end{equation}
+which is differentiable in $(x_k,y_k,d_k)$ everywhere except at the bin boundaries (where the derivative is continuous by construction).
+
+The full flow $T_\phi$ is a composition of $K$ such blocks plus residual transformations. Its log-Jacobian is the sum over blocks of the per-block log-Jacobians. Both $T_\phi$ and $\log|\det\nabla T_\phi|$ are differentiable in $\phi$ and in the conditioning context $c$, so reparameterized gradients are computed by autodiff through the spline.
+
+\subsection*{Sticking-the-landing}
+The reparameterization gradient of the negative ELBO with respect to encoder parameters $\phi$ contains a score-function term:
+\begin{equation}
+\nabla_\phi\KL(q_\phi(\eta)\|p(\eta)) = \E_\epsilon\!\big[\nabla_\phi\log q_\phi(T_\phi(\epsilon)) + \nabla_\phi\log q_\phi(T_\phi(\epsilon))\cdot(\log q_\phi(T_\phi(\epsilon))-\log p(T_\phi(\epsilon)))\big].
+\end{equation}
+The first summand on the right has zero expectation (it is the score function), but nonzero variance. Sticking-the-landing \citep{roeder2017stl} replaces $\nabla_\phi\log q_\phi(T_\phi(\epsilon))$ by its evaluation at a stop-gradient copy of $\phi$, which preserves the unbiased estimator while eliminating the variance contribution from this term. Empirically, the variance reduction is substantial when $q_\phi$ is close to $p(\eta\mid F)$ (i.e., late in training) and is the standard recommendation for reparameterized VAEs.
+
+\subsection*{Doubly-reparameterized gradient (DReG) for IWAE}
+\citet{rainforth2018iwaeSNR} showed that the IWAE encoder gradient has signal-to-noise ratio that decreases as $K^{-1/2}$, where $K$ is the number of importance samples, undermining the very benefit of using IWAE. \citet{tucker2019dreg} resolve this with the DReG estimator: instead of differentiating $\log\frac{1}{K}\sum_k w_k$ directly with respect to $\phi$, they observe that
+\begin{equation}
+\nabla_\phi\log\!\left(\tfrac{1}{K}\sum_k w_k\right) = \sum_k \tilde w_k\,\nabla_\phi\log w_k,\quad \tilde w_k=\frac{w_k}{\sum_j w_j},
+\end{equation}
+and replace the inner $\nabla_\phi\log w_k$ by a doubly-reparameterized form with stop-gradient on the outer importance weights. This eliminates the score-function contribution at the per-sample level. Empirically DReG restores the SNR scaling and makes IWAE genuinely useful at $K\ge 8$.
+
+\subsection*{Gradient-variance comparison}
+For small $K$ (say $K\le 4$), single-sample reparameterization with sticking-the-landing has the lowest variance and is the recommended setting during training. For larger $K$ (during fine-tuning), DReG-IWAE has the lowest variance and tightens the bound. The HAVI-Methyl training recipe (Section~\ref{sec:algo}) uses single-sample reparameterization at $K=1$ during the main training run and DReG-IWAE at $K=8$ during the fine-tuning pass.

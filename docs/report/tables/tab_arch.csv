@@ -1,0 +1,16 @@
+component,output_dim,trainable_params
+"ISAB layer 1 (2 heads, m=64)",128,~100K
+"ISAB layer 2 (2 heads, m=64)",128,~100K
+PMA pool (k=1),128,~50K
+Dilated CNN (sequence encoder),128,~200K
+HyenaDNA proj. (frozen 256 -> 128),128,~30K
+Concat + MLP context fusion,128,~70K
+"NSF block x K=6 (rational-quadratic, 8 bins)",1,~700K
+Beta-Binomial sufficient-stat head,1,~10K
+End-motif categorical head,256,~30K
+Coverage NB head,1,~10K
+Dirichlet head (T=64),64,~10K
+"Population lambda_l (m_l, v_l)",2L,60M (data-scale)
+"Sample shift nu_s (m_s^delta, v_s^delta)",2S,~S
+Total trainable encoder/heads,—,~1.0M
+Total variational parameters,—,~60M
