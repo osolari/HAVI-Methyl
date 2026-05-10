@@ -327,6 +327,50 @@ def test_torch_nsf_stack_log_density_finite():
     assert torch.all(torch.isfinite(log_q))
 
 
+def test_fit_svi_torch_iwae_runs_and_tightens_bound():
+    """K-sample IWAE produces a tighter bound than K=1 ELBO at the same seed."""
+    pytest.importorskip("torch")
+    import havi_methyl as hm
+
+    if hm.fit_svi_torch is None:
+        pytest.skip("torch not available")
+    sim = hm.simulate_dataset(S=4, L=20, coverage=2.0, rng=42)
+    cfg_elbo = hm.TorchSVIConfig(in_dim=5, hidden=16, num_inducing=8, num_layers=1, k_iwae=1)
+    cfg_iwae = hm.TorchSVIConfig(in_dim=5, hidden=16, num_inducing=8, num_layers=1, k_iwae=4)
+    state_elbo = hm.fit_svi_torch(sim.bags, sim.n, sim.n_meth, n_iter=12, config=cfg_elbo, seed=42)
+    state_iwae = hm.fit_svi_torch(sim.bags, sim.n, sim.n_meth, n_iter=12, config=cfg_iwae, seed=42)
+    assert all(np.isfinite(state_iwae.elbo_history))
+    # IWAE bound (logsumexp - log K) is tighter than the standard ELBO at
+    # iteration 0; the initial values are seed-deterministic so this is a
+    # reliable contract check.
+    assert state_iwae.elbo_history[0] > state_elbo.elbo_history[0]
+
+
+def test_fit_svi_torch_dreg_runs_without_nan():
+    """The simplified DReG-IWAE path completes without NaN.
+
+    Recovery quality is not asserted: the simplified surrogate is known
+    not to be benefit-positive at this synthetic scale (see docstring of
+    TorchSVIConfig.iwae_dreg).
+    """
+    pytest.importorskip("torch")
+    import havi_methyl as hm
+
+    if hm.fit_svi_torch is None:
+        pytest.skip("torch not available")
+    sim = hm.simulate_dataset(S=4, L=20, coverage=2.0, rng=42)
+    cfg = hm.TorchSVIConfig(
+        in_dim=5,
+        hidden=16,
+        num_inducing=8,
+        num_layers=1,
+        k_iwae=4,
+        iwae_dreg=True,
+    )
+    state = hm.fit_svi_torch(sim.bags, sim.n, sim.n_meth, n_iter=8, config=cfg, seed=42)
+    assert all(np.isfinite(state.elbo_history))
+
+
 def test_fit_svi_torch_with_flow_head_improves_elbo():
     """Torch SVI with the rewritten flow posterior trains end-to-end."""
     pytest.importorskip("torch")

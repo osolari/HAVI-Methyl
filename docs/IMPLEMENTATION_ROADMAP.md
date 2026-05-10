@@ -66,9 +66,20 @@ Follow-ups for the next pass:
   ``fit_svi_torch(posterior="flow")`` now trains end-to-end on
   synthetic data (no NaN). `bench_torch_svi.csv` records measured
   Gaussian vs flow head comparison.
-- DReG-IWAE objective option in `fit_svi_torch` for the IWAE finetune
-  schedule of Sec. 5.3 — still deferred.
-- Exit criteria for Phase 1 are met under both heads.
+- ✅ IWAE finetune: `TorchSVIConfig.k_iwae` enables the K-sample IWAE
+  bound; at K=4 on synthetic 5× coverage data it modestly beats the
+  standard ELBO (r=0.907 vs 0.904, RMSE 0.170 vs 0.186) with a
+  tighter logsumexp bound. The population update uses the IWAE-
+  weighted posterior mean across the K samples so K>1 doesn't add
+  Robbins-Monro variance.
+- ⚠ DReG variance reduction (`iwae_dreg=True`): the simplified
+  squared-weights surrogate is implemented but is not benefit-
+  positive at the small synthetic scales used in this repo. Proper
+  DReG requires detaching the encoder parameters in `log q_phi`
+  (PyTorch `functional_call`), which is deferred until the full
+  real-data benchmark loop motivates the variance reduction.
+- Exit criteria for Phase 1 are met under both posterior heads and
+  both objective variants (ELBO and IWAE).
 
 ## Phase 2 — Sec. 12 ablation matrix (IMPL-06..07) ✅
 

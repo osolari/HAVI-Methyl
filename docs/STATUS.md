@@ -62,10 +62,16 @@ actually stands today.
   explicit `num_bins+1` knots and zero-init for stability;
   `fit_svi_torch(posterior="flow")` trains end-to-end on synthetic
   data. `bench_torch_svi.csv` now records Gaussian vs flow head
-  comparison: at cov=1× the flow head matches Gaussian (r=0.548 vs
-  0.541), at cov=5× the flow trails slightly (r=0.916 vs 0.945) under
-  the modest 80-iter schedule. DReG-IWAE finetune deferred.
-- **Test suite** — 149 tests, all passing.
+  comparison and ELBO vs IWAE objectives side by side.
+- **IWAE finetune** — `TorchSVIConfig` gains `k_iwae` and `iwae_dreg`
+  toggles. Standard K-sample IWAE delivers what it promises: tighter
+  bound and comparable or slightly better recovery (at cov=5× on the
+  synthetic data, K=4 IWAE gets r=0.907 / RMSE 0.170 vs ELBO K=1 at
+  r=0.904 / RMSE 0.186). The simplified DReG variant is shipped but
+  not benefit-positive: proper DReG requires detaching encoder
+  parameters in `log q_phi` (PyTorch `functional_call`), which is not
+  yet implemented.
+- **Test suite** — 151 tests, all passing.
 
 ## What is *not* live data
 

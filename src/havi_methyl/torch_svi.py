@@ -75,6 +75,18 @@ if HAS_TORCH:
         # mQTL anchor data: tuple(genotype, intercept, effect, anchor_idx) or None.
         mqtl_anchors: tuple | None = None
         mqtl_weight: float = 0.0
+        # IWAE-tightened bound (Sec. 5.3 / Phase 1 IMPL-04 finetune).
+        # k_iwae=1 reproduces the standard reparam ELBO (Phase 1 default).
+        # k_iwae>1 with iwae_dreg=False uses the standard K-sample IWAE
+        # objective, which gives a tighter bound (Jensen gap shrinks).
+        # iwae_dreg=True applies a simplified Tucker-2019 doubly-reparam
+        # variance reduction; the full DReG estimator requires detaching
+        # the encoder parameters in log q_phi (PyTorch functional_call),
+        # which is not implemented here. The simplified surrogate is
+        # available but is a research-grade flag, not benefit-positive at
+        # the small synthetic scales used in this repo.
+        k_iwae: int = 1
+        iwae_dreg: bool = False
 
     class _GaussianPosteriorHead(nn.Module):
         """Encoder context -> (mu, log_sigma) of the q(eta|c) Gaussian head."""
@@ -209,37 +221,77 @@ if HAS_TORCH:
             ctx_batch = torch.stack(ctx_list, dim=0)
             mu_prior = torch.tensor(mu_prior_list, dtype=torch.float32, device=device)
 
-            if cfg.posterior == "gaussian":
-                mu_q, log_sigma = head(ctx_batch)
-                epsilon = torch.randn_like(mu_q)
-                eta = mu_q + torch.exp(log_sigma) * epsilon
-                log_q = -log_sigma - 0.5 * epsilon**2 - 0.5 * np.log(2 * np.pi)
-            else:  # pragma: no cover
-                epsilon = torch.randn(ctx_batch.shape[0], device=device)
-                eta, log_jac = head(epsilon, ctx_batch)
-                log_q = -0.5 * epsilon**2 - 0.5 * np.log(2 * np.pi) - log_jac
-
-            beta = torch.sigmoid(eta)
             n_obs = torch.tensor(n_obs_list, dtype=torch.float32, device=device)
             n_m = torch.tensor(n_meth_list, dtype=torch.float32, device=device)
             kappa = cfg.kappa
-            alpha = kappa * beta + 1e-3
-            gamma = kappa * (1.0 - beta) + 1e-3
-            log_recon = (
-                torch.lgamma(n_m + alpha)
-                + torch.lgamma(n_obs - n_m + gamma)
-                - torch.lgamma(n_obs + alpha + gamma)
-                - torch.lgamma(alpha)
-                - torch.lgamma(gamma)
-                + torch.lgamma(alpha + gamma)
-            )
-            log_p = -0.5 * ((eta - mu_prior) / cfg.sigma_eta) ** 2 - 0.5 * np.log(
-                2 * np.pi * cfg.sigma_eta**2
-            )
-            kl_local = (log_q - log_p).mean()
-            recon = log_recon.mean()
-            elbo_surrogate = recon - kl_local
-            loss = -elbo_surrogate
+            K = max(1, int(cfg.k_iwae))
+
+            # Sample K independent eta per (s, l). For K>1 we evaluate the
+            # IWAE bound; the K=1 path is identical to the previous Phase 1
+            # ELBO (so existing numbers are unchanged when k_iwae=1).
+            log_ws: list[torch.Tensor] = []  # (K, batch_size)
+            etas: list[torch.Tensor] = []
+            for _k in range(K):
+                if cfg.posterior == "gaussian":
+                    mu_q, log_sigma = head(ctx_batch)
+                    epsilon = torch.randn_like(mu_q)
+                    eta = mu_q + torch.exp(log_sigma) * epsilon
+                    log_q_k = -log_sigma - 0.5 * epsilon**2 - 0.5 * np.log(2 * np.pi)
+                else:  # pragma: no cover
+                    epsilon = torch.randn(ctx_batch.shape[0], device=device)
+                    eta, log_jac = head(epsilon, ctx_batch)
+                    log_q_k = -0.5 * epsilon**2 - 0.5 * np.log(2 * np.pi) - log_jac
+                beta_k = torch.sigmoid(eta)
+                alpha = kappa * beta_k + 1e-3
+                gamma = kappa * (1.0 - beta_k) + 1e-3
+                log_recon_k = (
+                    torch.lgamma(n_m + alpha)
+                    + torch.lgamma(n_obs - n_m + gamma)
+                    - torch.lgamma(n_obs + alpha + gamma)
+                    - torch.lgamma(alpha)
+                    - torch.lgamma(gamma)
+                    + torch.lgamma(alpha + gamma)
+                )
+                log_p_k = -0.5 * ((eta - mu_prior) / cfg.sigma_eta) ** 2 - 0.5 * np.log(
+                    2 * np.pi * cfg.sigma_eta**2
+                )
+                log_ws.append(log_recon_k + log_p_k - log_q_k)
+                etas.append(eta)
+            log_w = torch.stack(log_ws, dim=0)  # (K, B)
+            eta_stack = torch.stack(etas, dim=0)  # (K, B)
+            # For the population update use the IWAE-weighted posterior mean
+            # so K>1 does not increase the Robbins-Monro variance.
+            with torch.no_grad():
+                norm_w_for_update = torch.softmax(log_w, dim=0)
+            eta = (norm_w_for_update * eta_stack).sum(dim=0)  # (B,)
+
+            if K == 1:
+                elbo_surrogate = log_w[0].mean()
+                loss = -elbo_surrogate
+            elif cfg.iwae_dreg:
+                # DReG: encoder gradient uses squared importance weights as
+                # mixing coefficients (Tucker et al. 2019). The detached
+                # ``norm_w`` acts as a stop-grad multiplier so the score-
+                # function term contribution cancels in expectation. The
+                # K factor rescales the surrogate so it sits at the same
+                # magnitude as the standard IWAE bound; without it the
+                # optimisation signal is K-times smaller and training
+                # under-progresses.
+                with torch.no_grad():
+                    norm_w = torch.softmax(log_w, dim=0)
+                dreg = K * (norm_w**2 * log_w).sum(dim=0).mean()
+                elbo_surrogate = (torch.logsumexp(log_w, dim=0) - np.log(K)).mean()
+                loss = -dreg
+            else:
+                # Standard K-sample IWAE bound.
+                iwae = (torch.logsumexp(log_w, dim=0) - np.log(K)).mean()
+                elbo_surrogate = iwae
+                loss = -iwae
+
+            # Keep mu_q, log_sigma, eta references valid for the Phase 2
+            # add-ons below (they expect a single sample's tensors).
+            if cfg.posterior == "gaussian":
+                mu_q, log_sigma = head(ctx_batch)
 
             # Phase 2 IMPL-06 add-ons. All zero-weight by default so the
             # Phase 1 ELBO and recovery numbers are unchanged.
