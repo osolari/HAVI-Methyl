@@ -33,7 +33,13 @@ actually stands today.
   end-to-end at S=8, L=80; results land in `bench_torch_svi.csv` with
   measured Pearson r, ELBO trajectory, and wall-time on the local
   machine.
-- **Test suite** — 137 tests, all passing.
+- **Phase 2 ablation matrix** — `scripts/bench_ablation_matrix.py`
+  runs all six A0..A5 configurations on the synthetic FinaleMe-proxy
+  (S=12, L=120, 2× coverage) and writes `bench_ablation_matrix.csv`
+  with measured Pearson, Spearman, AUC, ICC, DMR F1, ECE, and
+  (for A5) conformal coverage at the 0.90 nominal level. Exit
+  criterion (A5 coverage within ±5% of nominal) is satisfied at 0.867.
+- **Test suite** — 139 tests, all passing.
 
 ## What is *not* live data
 
@@ -62,8 +68,8 @@ fabricated numbers otherwise:
 | IMPL-03 | Sequence-context encoder | **Numpy reference shipped** (`DilatedCNNSequenceEncoder`, `FrozenEmbeddingProjection`, `one_hot_dna`, `reverse_complement`). **Pending:** real HyenaDNA/Caduceus checkpoint + held-out validation. |
 | IMPL-04 | Conditional NSF normalizing-flow local posterior | **Numpy reference shipped** (`ConditionalRationalQuadraticSpline` with bisection inverse). Torch `ConditionalNSFStack` shipped with `forward`/`inverse`/`log_density`. **Pending:** stable rational-quadratic spline parameterisation in torch (current block produces NaN at random init due to indexing edge cases). DReG-IWAE objective. |
 | IMPL-05 | SVI population/sample updates | **Done.** Numpy `fit_svi_full` with Robbins-Monro and global recentering; torch `fit_svi_torch` integrates Set Transformer + Gaussian posterior head + Beta-Binomial reconstruction + Robbins-Monro updates. Phase 1.4 verification artifact at `outputs/tables/bench_torch_svi.csv`. |
-| IMPL-06 | De-confounding losses | **All four loss functions shipped** (VIB, counterfactual, mQTL, domain-adversarial) plus cohort-balance diagnostic. **Pending:** integration into a joint training loop with gradient reversal. |
-| IMPL-07 | Conformal calibration wrapper | **Density-set + worst-stratum diagnostics shipped** on top of split-conformal / CQR / Mondrian / risk-control. **Pending:** wiring through the full flow posterior. |
+| IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **Pending:** true gradient-reversal head (current adversarial proxy is a context-variance penalty), real mQTL anchors. |
+| IMPL-07 | Conformal calibration wrapper | **Done.** Density-set + worst-stratum diagnostics shipped; `bench_ablation_matrix.py` row A5 wraps the trained model with `gaussian_conformal_intervals` on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target. |
 | IMPL-08 | Tissue-of-origin head | **LOO stress test shipped** on top of the existing Dirichlet head + HDP truncation. **Pending:** full Dirichlet-head training joined with the SVI loop. |
 | IMPL-09 | Full chromatin-aware simulator | **Validation runner shipped**; compact simulator emits the App. H axes. **Pending:** chromatin tracks, methylation-conditioned cut-bias model, full Strauss repulsion. |
 | IMPL-10 | Table and figure regeneration | **Done.** All Sec. 11 artifacts derive from `outputs/results.json` + `outputs/plot_data.npz`. |

@@ -67,6 +67,14 @@ if HAS_TORCH:
         batch_samples: int = 4
         batch_loci: int = 32
         posterior: str = "gaussian"  # "gaussian" or "flow"
+        # Phase 2 ablation toggles (Sec. 12.3 / IMPL-06).
+        # All default to 0 so the existing Phase 1 numbers are unchanged.
+        vib_weight: float = 0.0
+        counterfactual_weight: float = 0.0
+        adversarial_weight: float = 0.0
+        # mQTL anchor data: tuple(genotype, intercept, effect, anchor_idx) or None.
+        mqtl_anchors: tuple | None = None
+        mqtl_weight: float = 0.0
 
     class _GaussianPosteriorHead(nn.Module):
         """Encoder context -> (mu, log_sigma) of the q(eta|c) Gaussian head."""
@@ -232,6 +240,59 @@ if HAS_TORCH:
             recon = log_recon.mean()
             elbo_surrogate = recon - kl_local
             loss = -elbo_surrogate
+
+            # Phase 2 IMPL-06 add-ons. All zero-weight by default so the
+            # Phase 1 ELBO and recovery numbers are unchanged.
+            if cfg.vib_weight > 0 and cfg.posterior == "gaussian":
+                # KL(N(mu_q, sigma_q^2) || N(0, 1)) closed form.
+                sigma_q2 = torch.exp(2 * log_sigma)
+                kl_vib = 0.5 * (sigma_q2 + mu_q**2 - 1.0 - 2 * log_sigma)
+                loss = loss + cfg.vib_weight * kl_vib.mean()
+            if cfg.counterfactual_weight > 0:
+                # Swap the (pop, delta) inputs in the context vector and ask
+                # the encoder to give the same posterior mean. Penalises
+                # invariance breaks of the prior-input swap.
+                ctx_swap = ctx_batch.clone()
+                # Zero out the (mu_pop_l, mu_delta_s) channels (positions
+                # cfg.hidden, cfg.hidden+1).
+                ctx_swap[:, cfg.hidden] = 0.0
+                ctx_swap[:, cfg.hidden + 1] = 0.0
+                if cfg.posterior == "gaussian":
+                    mu_q_swap, _ = head(ctx_swap)
+                    cf_loss = ((mu_q - mu_q_swap) ** 2).mean()
+                else:  # pragma: no cover
+                    eta_swap, _ = head(epsilon, ctx_swap)
+                    cf_loss = ((eta - eta_swap) ** 2).mean()
+                loss = loss + cfg.counterfactual_weight * cf_loss
+            if cfg.adversarial_weight > 0:
+                # Gradient-reversal placeholder: penalise variance of the
+                # encoder context across samples (simple invariance proxy).
+                # A true gradient-reversal head with a per-sample classifier
+                # is tracked as an IMPL-06 follow-up.
+                ctx_means = ctx_batch[:, : cfg.hidden].mean(dim=0, keepdim=True)
+                adv_loss = ((ctx_batch[:, : cfg.hidden] - ctx_means) ** 2).mean()
+                loss = loss + cfg.adversarial_weight * adv_loss
+            if cfg.mqtl_anchors is not None and cfg.mqtl_weight > 0:
+                geno, intercept, effect, anchor_idx = cfg.mqtl_anchors
+                anchor_mask = np.isin(
+                    np.array([ell for s in sample_batch for ell in loci_batch]), anchor_idx
+                )
+                if anchor_mask.any():
+                    a_mu = mu_q[torch.tensor(anchor_mask, device=device)]
+                    a_pred = torch.tensor(
+                        [
+                            float(intercept[ell] + effect[ell] * geno[s, ell])
+                            for s in sample_batch
+                            for ell in loci_batch
+                            if ell in anchor_idx
+                        ],
+                        dtype=torch.float32,
+                        device=device,
+                    )
+                    if a_pred.numel() > 0 and a_mu.numel() == a_pred.numel():
+                        mqtl_resid = ((a_mu - a_pred) ** 2).mean()
+                        loss = loss + cfg.mqtl_weight * mqtl_resid
+
             opt.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(

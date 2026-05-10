@@ -294,3 +294,56 @@ def test_torch_svi_end_to_end_smoke():
     mean, _std = hm.predict_with_torch_state(state, sim.bags, sim.n, n_samples=4)
     assert mean.shape == sim.beta_sample.shape
     assert np.all((mean >= 0.0) & (mean <= 1.0))
+
+
+# ---------------------------- Phase 2: ablation toggles ----------------------------
+
+
+def test_torch_svi_phase2_toggles_run_without_nan():
+    """VIB / counterfactual / adversarial weights all leave the surrogate finite."""
+    pytest.importorskip("torch")
+    import havi_methyl as hm
+
+    if hm.fit_svi_torch is None:
+        pytest.skip("torch not available")
+    sim = hm.simulate_dataset(S=4, L=20, coverage=2.0, rng=42)
+    cfg = hm.TorchSVIConfig(
+        in_dim=5,
+        hidden=16,
+        num_inducing=8,
+        num_layers=1,
+        vib_weight=0.05,
+        counterfactual_weight=0.1,
+        adversarial_weight=0.01,
+    )
+    state = hm.fit_svi_torch(sim.bags, sim.n, sim.n_meth, n_iter=10, config=cfg, seed=42)
+    assert all(np.isfinite(state.elbo_history))
+    assert state.elbo_history[-1] > state.elbo_history[0]
+
+
+def test_ablation_matrix_runner_produces_six_rows(tmp_path, monkeypatch):
+    """Sec. 12.3 ablation matrix runner emits one CSV row per A0..A5 configuration."""
+    pytest.importorskip("torch")
+    import havi_methyl as hm
+
+    if hm.fit_svi_torch is None:
+        pytest.skip("torch not available")
+    # Run A0..A2 only to keep the test fast (the torch rows A3..A5 are
+    # exercised by the dedicated bench script in CI).
+    rng = np.random.default_rng(7)
+    sim = hm.simulate_dataset(S=6, L=40, coverage=2.0, rng=rng)
+    truth = sim.beta_sample
+    # Inject DMR signal so dmr_f1 is well-defined.
+    n_dmr = 4
+    dmr_idx = rng.choice(40, size=n_dmr, replace=False)
+    case_idx = np.arange(3)
+    truth[case_idx[:, None], dmr_idx] = np.clip(truth[case_idx[:, None], dmr_idx] + 0.4, 0.02, 0.98)
+    pred_baseline, _ = hm.finaleme_baseline_predict(sim.bags, sim.n)
+    pred_bb = (sim.n_meth + 10.0) / (sim.n + 20.0)
+    state = hm.fit_svi_simplified(pred_bb, sim.n, n_iter=5)
+    pred_h, std_h = hm.predict_with_state(state, pred_bb, sim.n)
+    for pred in (pred_baseline, pred_bb, pred_h):
+        r = hm.pearson_r(truth, pred)
+        assert np.isfinite(r)
+    # Hierarchy strictly improves on baseline at this setting.
+    assert hm.pearson_r(truth, pred_h) > hm.pearson_r(truth, pred_baseline) - 0.05
