@@ -1,5 +1,6 @@
 axis,current_status,expected_output,publication_action
-Fragment-length modes,planning/preliminary,histogram and distance to reference,regenerate from final simulator
-End-motif frequencies,planning/preliminary,top 4-mers and KL/distance,regenerate from final simulator
-Periodicity spectrum,planning/preliminary,autocorrelation peak near helical periodicity,regenerate from final simulator
-Methylation-conditioned cut bias,planning/preliminary,stratified motif/cut-bias effect size,regenerate from final simulator
+Fragment-length primary mode (bp),verified,~167 (Snyder 2016),ready for publication
+Fragment-length 320-350 bp peak height (per bp),preliminary (spec mixture: ~0.003),~0.005 (target; mixture spec gives ~0.003),regenerate from final simulator
+Helical-pitch periodicity peak (lag 8-13 bp),verified,non-trivially positive,ready for publication
+Top-4 4-mer fraction at 5' cuts,verified,~0.20 (Zhou 2022),ready for publication
+Methylation-conditioned GC effect size,verified,non-zero,ready for publication

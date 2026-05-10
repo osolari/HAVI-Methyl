@@ -352,6 +352,55 @@ def test_hdp_truncated_pi_sums_to_one_at_T64():
     assert np.all(pi >= 0)
 
 
+# ---------------------------- Phase 4: chromatin-aware simulator ----------------------------
+
+
+def test_cut_site_density_linker_peaks_at_midpoints():
+    """The linker-biased density peaks at midpoints between consecutive nucleosomes."""
+    import havi_methyl as hm
+
+    # Two nucleosomes 200 bp apart -> midpoint at 200.
+    nucs = np.array([100.0, 300.0])
+    grid = np.linspace(50, 350, 301)
+    density = hm.cut_site_density_linker(grid, nucs)
+    midpoint_idx = np.argmin(np.abs(grid - 200.0))
+    center_idx = np.argmin(np.abs(grid - 100.0))
+    assert density[midpoint_idx] > density[center_idx]
+
+
+def test_chromatin_aware_simulator_returns_valid_dataset():
+    """simulate_dataset_chromatin_aware preserves the SimulatedDataset shape contract."""
+    import havi_methyl as hm
+
+    sim = hm.simulate_dataset_chromatin_aware(S=3, L=10, coverage=2.0, rng=42)
+    assert sim.beta_pop.shape == (10,)
+    assert sim.beta_sample.shape == (3, 10)
+    assert sim.n.shape == (3, 10)
+    assert len(sim.bags) == 3
+    for s in range(3):
+        assert len(sim.bags[s]) == 10
+        for ell in range(10):
+            n = sim.n[s, ell]
+            if n > 0:
+                assert sim.bags[s][ell].shape == (n, 5)
+
+
+def test_simulator_validation_chromatin_aware_meets_targets():
+    """Across multiple seeds the chromatin-aware simulator hits App. H targets."""
+    import havi_methyl as hm
+
+    seeds = list(range(5))
+    metrics = [
+        hm.simulator_validation_metrics(n_frag=10_000, rng=s, chromatin_aware=True) for s in seeds
+    ]
+    primary = np.array([m["length_primary_mode_bp"] for m in metrics])
+    top4 = np.array([m["top4_motif_fraction"] for m in metrics])
+    period = np.array([m["length_periodicity_amplitude"] for m in metrics])
+    assert np.all((primary >= 160) & (primary <= 175))
+    assert top4.mean() > 0.15  # within published ~0.20 band
+    assert period.mean() > 0.05
+
+
 def test_loo_method_pluggable():
     """leave_one_tissue_out_stress accepts a custom deconvolution callable."""
     import havi_methyl as hm

@@ -45,7 +45,13 @@ actually stands today.
   mixture and emits `bench_tissue_loo.csv` with both in-panel and
   per-method LOO RMSE. The HAVI-Methyl Dirichlet head wins on both
   axes (0.019 in-panel, 0.070 LOO mean).
-- **Test suite** — 142 tests, all passing.
+- **Phase 4 chromatin-aware simulator** —
+  `simulate_dataset_chromatin_aware` samples cuts from the App. E
+  linker-biased density; `simulator_validation_metrics(chromatin_aware
+  =True)` flips 4 of 5 App. H axes to `verified` (primary mode 167.5
+  bp, helical-pitch periodicity peak 0.86, top-4 motif fraction
+  0.156, methylation-conditioned GC effect 0.090).
+- **Test suite** — 145 tests, all passing.
 
 ## What is *not* live data
 
@@ -77,7 +83,7 @@ fabricated numbers otherwise:
 | IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **Pending:** true gradient-reversal head (current adversarial proxy is a context-variance penalty), real mQTL anchors. |
 | IMPL-07 | Conformal calibration wrapper | **Done.** Density-set + worst-stratum diagnostics shipped; `bench_ablation_matrix.py` row A5 wraps the trained model with `gaussian_conformal_intervals` on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target. |
 | IMPL-08 | Tissue-of-origin head | **Done on the synthetic proxy.** Variance-weighted `dirichlet_head_predict` consumes posterior `(mean, var)`; `hdp_truncated_deconvolve` blends stick-breaking prior with lstsq; `leave_one_tissue_out_stress` is now method-pluggable. `bench_tissue_loo.csv` records per-method in-panel + LOO RMSE on a synthetic 4-tissue mixture. **Pending:** atlas swap (Loyfer 2023) when accession is verified; joining the head's training loss with `fit_svi_torch`. |
-| IMPL-09 | Full chromatin-aware simulator | **Validation runner shipped**; compact simulator emits the App. H axes. **Pending:** chromatin tracks, methylation-conditioned cut-bias model, full Strauss repulsion. |
+| IMPL-09 | Full chromatin-aware simulator | **Done on 4 of 5 App. H axes.** `cut_site_density_linker` implements the App. E corrected linker-biased formula; `simulate_dataset_chromatin_aware` composes nucleosome positioning + linker cuts + 3-mode lengths + boosted top-4 motifs. Strauss repulsion already in `sample_nucleosomes`. Validation table flips axes to `verified` when targets are hit. **Pending:** length-mixture re-fitting on a real dataset to match the 320-350 bp secondary peak height target ~0.005. |
 | IMPL-10 | Table and figure regeneration | **Done.** All Sec. 11 artifacts derive from `outputs/results.json` + `outputs/plot_data.npz`. |
 
 ## Reproducibility
