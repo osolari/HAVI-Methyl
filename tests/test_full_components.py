@@ -296,6 +296,51 @@ def test_torch_svi_end_to_end_smoke():
     assert np.all((mean >= 0.0) & (mean <= 1.0))
 
 
+# ---------------------------- IMPL-04 spline rewrite ----------------------------
+
+
+def test_torch_conditional_nsf_block_finite_at_random_init():
+    pytest.importorskip("torch")
+    import torch
+    from havi_methyl.flow import ConditionalNSFBlock
+
+    torch.manual_seed(0)
+    block = ConditionalNSFBlock(context_dim=8, num_bins=8)
+    ctx = torch.randn(20, 8)
+    x = torch.randn(20)
+    y, log_jac = block(x, ctx)
+    assert torch.all(torch.isfinite(y))
+    assert torch.all(torch.isfinite(log_jac))
+
+
+def test_torch_nsf_stack_log_density_finite():
+    pytest.importorskip("torch")
+    import torch
+    from havi_methyl.flow import ConditionalNSFStack
+
+    torch.manual_seed(1)
+    stack = ConditionalNSFStack(context_dim=4, num_blocks=3, num_bins=8)
+    ctx = torch.randn(10, 4)
+    eps = torch.randn(10)
+    eta, _ = stack(eps, ctx)
+    log_q = stack.log_density(eta, ctx)
+    assert torch.all(torch.isfinite(log_q))
+
+
+def test_fit_svi_torch_with_flow_head_improves_elbo():
+    """Torch SVI with the rewritten flow posterior trains end-to-end."""
+    pytest.importorskip("torch")
+    import havi_methyl as hm
+
+    if hm.fit_svi_torch is None:
+        pytest.skip("torch not available")
+    sim = hm.simulate_dataset(S=4, L=20, coverage=2.0, rng=42)
+    cfg = hm.TorchSVIConfig(in_dim=5, hidden=16, num_inducing=8, num_layers=1, posterior="flow")
+    state = hm.fit_svi_torch(sim.bags, sim.n, sim.n_meth, n_iter=12, config=cfg, seed=42)
+    assert all(np.isfinite(state.elbo_history))
+    assert state.elbo_history[-1] > state.elbo_history[0]
+
+
 # ---------------------------- Phase 2: ablation toggles ----------------------------
 
 

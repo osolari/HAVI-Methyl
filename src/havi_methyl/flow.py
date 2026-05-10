@@ -250,8 +250,16 @@ try:  # pragma: no cover
     class ConditionalNSFBlock(nn.Module):
         """Conditional rational-quadratic spline block (App. C).
 
-        Predicts the spline parameters from a context vector; rational-quadratic
-        transform on a 1D latent (logit-beta).
+        Phase 1 IMPL-04 follow-up rewrite: predicts ``num_bins`` widths,
+        ``num_bins`` heights, and ``num_bins-1`` interior derivatives from
+        the context vector. Knots are constructed explicitly with
+        ``num_bins + 1`` entries starting at ``-B`` so the in-bin index in
+        ``[0, num_bins-1]`` always has a valid ``idx + 1`` access (the
+        previous parameterisation only stored ``num_bins`` knots and went
+        out of bounds at ``idx + 1 == num_bins``, which produced NaN at
+        random init). Boundary derivatives are pinned to 1.0 for
+        tail-linearity (App. C); outside ``[-B, B]`` the transform is
+        identity.
         """
 
         def __init__(self, context_dim: int, num_bins: int = 8, B: float = 3.0):
@@ -263,40 +271,67 @@ try:  # pragma: no cover
                 nn.GELU(),
                 nn.Linear(128, 3 * num_bins - 1),
             )
+            # Conservative initialisation so the spline is near-identity at
+            # random init; the head can still drift to non-trivial shapes.
+            for layer in self.param_net:
+                if isinstance(layer, nn.Linear):
+                    nn.init.zeros_(layer.bias)
+            nn.init.zeros_(self.param_net[-1].weight)
+
+        def _build_knots(
+            self, context: torch.Tensor
+        ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+            params = self.param_net(context)
+            widths_logit, heights_logit, deriv_logit = torch.split(
+                params, [self.num_bins, self.num_bins, self.num_bins - 1], dim=-1
+            )
+            # Widths and heights as positive partitions of [0, 2B], summing to 2B.
+            widths = 2 * self.B * F.softmax(widths_logit, dim=-1)
+            heights = 2 * self.B * F.softmax(heights_logit, dim=-1)
+            # Cumulative sum gives num_bins points in [0, 2B]; prepend 0 to
+            # get num_bins+1 points then shift by -B.
+            x_cum = torch.cumsum(widths, dim=-1)
+            y_cum = torch.cumsum(heights, dim=-1)
+            zero = torch.zeros_like(x_cum[..., :1])
+            x_knots = -self.B + torch.cat([zero, x_cum], dim=-1)
+            y_knots = -self.B + torch.cat([zero, y_cum], dim=-1)
+            # Interior derivatives via softplus + floor; pin boundary derivatives to 1.
+            d_inner = F.softplus(deriv_logit) + 1e-3
+            ones = torch.ones_like(d_inner[..., :1])
+            d = torch.cat([ones, d_inner, ones], dim=-1)
+            return x_knots, y_knots, d
 
         def forward(
             self, x: torch.Tensor, context: torch.Tensor
         ) -> tuple[torch.Tensor, torch.Tensor]:
-            params = self.param_net(context)
-            xs, ys, ds = torch.split(
-                params, [self.num_bins, self.num_bins, self.num_bins - 1], dim=-1
-            )
-            # Normalize
-            xs = self.B * (2 * F.softmax(xs, dim=-1).cumsum(dim=-1) - 1)
-            ys = self.B * (2 * F.softmax(ys, dim=-1).cumsum(dim=-1) - 1)
-            ds = F.softplus(ds) + 1e-3
-            ds = torch.cat([torch.ones_like(ds[..., :1]), ds, torch.ones_like(ds[..., :1])], dim=-1)
-            # Bin search and within-bin transform
-            x_clamped = torch.clamp(x, -self.B, self.B)
-            idx = torch.searchsorted(xs, x_clamped.unsqueeze(-1)).clamp(1, self.num_bins) - 1
-            x_lo = xs.gather(-1, idx).squeeze(-1)
-            x_hi = xs.gather(-1, idx + 1).squeeze(-1)
-            y_lo = ys.gather(-1, idx).squeeze(-1)
-            y_hi = ys.gather(-1, idx + 1).squeeze(-1)
-            d_lo = ds.gather(-1, idx).squeeze(-1)
-            d_hi = ds.gather(-1, idx + 1).squeeze(-1)
-            bw = x_hi - x_lo
-            bh = y_hi - y_lo
+            x_knots, y_knots, d = self._build_knots(context)
+            inside = (x.abs() < self.B).to(x.dtype)
+            x_clamped = torch.clamp(x, -self.B + 1e-6, self.B - 1e-6)
+            # idx in [0, num_bins-1]
+            idx = torch.searchsorted(x_knots, x_clamped.unsqueeze(-1)).clamp(1, self.num_bins) - 1
+            x_lo = x_knots.gather(-1, idx).squeeze(-1)
+            x_hi = x_knots.gather(-1, idx + 1).squeeze(-1)
+            y_lo = y_knots.gather(-1, idx).squeeze(-1)
+            y_hi = y_knots.gather(-1, idx + 1).squeeze(-1)
+            d_lo = d.gather(-1, idx).squeeze(-1)
+            d_hi = d.gather(-1, idx + 1).squeeze(-1)
+            bw = (x_hi - x_lo).clamp_min(1e-6)
+            bh = (y_hi - y_lo).clamp_min(1e-6)
             s = bh / bw
-            xi = (x_clamped - x_lo) / bw
+            xi = ((x_clamped - x_lo) / bw).clamp(0.0, 1.0)
             num = bh * (s * xi**2 + d_lo * xi * (1 - xi))
-            den = s + (d_hi + d_lo - 2 * s) * xi * (1 - xi)
+            den = (s + (d_hi + d_lo - 2 * s) * xi * (1 - xi)).clamp_min(1e-6)
             y = y_lo + num / den
             log_jac = (
-                2 * torch.log(s)
-                + torch.log(d_hi * xi**2 + 2 * s * xi * (1 - xi) + d_lo * (1 - xi) ** 2)
+                2 * torch.log(s.clamp_min(1e-6))
+                + torch.log(
+                    (d_hi * xi**2 + 2 * s * xi * (1 - xi) + d_lo * (1 - xi) ** 2).clamp_min(1e-6)
+                )
                 - 2 * torch.log(den)
             )
+            # Tail-linear: outside the support, identity transform with zero log Jacobian.
+            y = inside * y + (1 - inside) * x
+            log_jac = inside * log_jac
             return y, log_jac
 
     class ConditionalNSFStack(nn.Module):

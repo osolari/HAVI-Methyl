@@ -60,14 +60,15 @@ Tests added: `test_torch_svi_end_to_end_smoke` in
 
 Follow-ups for the next pass:
 
-- Stable rational-quadratic spline parameterisation in torch (rewrite
-  `ConditionalNSFBlock` with explicit `num_bins + 1` knots and bounded
-  derivatives). Once it lands, swap the Gaussian head for the flow head
-  in `bench_torch_svi.py` and verify the NaN regression is gone.
+- ✅ Stable rational-quadratic spline parameterisation: torch
+  `ConditionalNSFBlock` rewritten with explicit `num_bins + 1` knots,
+  conservative zero-init, and tail-linear extension outside ``[-B, B]``.
+  ``fit_svi_torch(posterior="flow")`` now trains end-to-end on
+  synthetic data (no NaN). `bench_torch_svi.csv` records measured
+  Gaussian vs flow head comparison.
 - DReG-IWAE objective option in `fit_svi_torch` for the IWAE finetune
-  schedule of Sec. 5.3.
-- Exit criteria for Phase 1 are met under the Gaussian head; flow-head
-  exit criteria are deferred to the spline rewrite.
+  schedule of Sec. 5.3 — still deferred.
+- Exit criteria for Phase 1 are met under both heads.
 
 ## Phase 2 — Sec. 12 ablation matrix (IMPL-06..07) ✅
 

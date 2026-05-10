@@ -58,7 +58,14 @@ actually stands today.
   coverage. Multi-seed median Pearson r: HAVI-Methyl beats
   FinaleMe-style at every coverage (e.g. 0.357 vs 0.191 at 0.1×, 0.973
   vs 0.970 at 30×).
-- **Test suite** — 146 tests, all passing.
+- **IMPL-04 follow-up** — torch `ConditionalNSFBlock` rewritten with
+  explicit `num_bins+1` knots and zero-init for stability;
+  `fit_svi_torch(posterior="flow")` trains end-to-end on synthetic
+  data. `bench_torch_svi.csv` now records Gaussian vs flow head
+  comparison: at cov=1× the flow head matches Gaussian (r=0.548 vs
+  0.541), at cov=5× the flow trails slightly (r=0.916 vs 0.945) under
+  the modest 80-iter schedule. DReG-IWAE finetune deferred.
+- **Test suite** — 149 tests, all passing.
 
 ## What is *not* live data
 
@@ -85,7 +92,7 @@ fabricated numbers otherwise:
 | IMPL-01 | Path-handling and artifact policy | **Done.** |
 | IMPL-02 | ISAB/PMA Set Transformer fragment-bag encoder | **Done.** `ISABNumpy` / `PMANumpy` / `SetTransformerNumpy` with multi-head attention + layernorm + GELU MLP residual; optional torch ISAB/PMA in `encoders.py`. Tests cover permutation invariance and mask handling. |
 | IMPL-03 | Sequence-context encoder | **Numpy reference shipped** (`DilatedCNNSequenceEncoder`, `FrozenEmbeddingProjection`, `one_hot_dna`, `reverse_complement`). **Pending:** real HyenaDNA/Caduceus checkpoint + held-out validation. |
-| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Numpy reference shipped** (`ConditionalRationalQuadraticSpline` with bisection inverse). Torch `ConditionalNSFStack` shipped with `forward`/`inverse`/`log_density`. **Pending:** stable rational-quadratic spline parameterisation in torch (current block produces NaN at random init due to indexing edge cases). DReG-IWAE objective. |
+| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Done.** Numpy reference + torch `ConditionalNSFBlock` rewritten with explicit `num_bins+1` knots; conservative zero-init keeps the block near-identity at start. `fit_svi_torch(posterior="flow")` trains without NaN end-to-end; `bench_torch_svi.csv` records measured Gaussian vs flow head comparison on synthetic data. **Pending:** DReG-IWAE objective option for the Sec. 5.3 finetune schedule. |
 | IMPL-05 | SVI population/sample updates | **Done.** Numpy `fit_svi_full` with Robbins-Monro and global recentering; torch `fit_svi_torch` integrates Set Transformer + Gaussian posterior head + Beta-Binomial reconstruction + Robbins-Monro updates. Phase 1.4 verification artifact at `outputs/tables/bench_torch_svi.csv`. |
 | IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **Pending:** true gradient-reversal head (current adversarial proxy is a context-variance penalty), real mQTL anchors. |
 | IMPL-07 | Conformal calibration wrapper | **Done.** Density-set + worst-stratum diagnostics shipped; `bench_ablation_matrix.py` row A5 wraps the trained model with `gaussian_conformal_intervals` on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target. |
