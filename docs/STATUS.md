@@ -39,7 +39,13 @@ actually stands today.
   with measured Pearson, Spearman, AUC, ICC, DMR F1, ECE, and
   (for A5) conformal coverage at the 0.90 nominal level. Exit
   criterion (A5 coverage within ±5% of nominal) is satisfied at 0.867.
-- **Test suite** — 139 tests, all passing.
+- **Phase 3 tissue LOO** — `scripts/bench_tissue_loo.py` compares
+  four deconvolution methods (FinaleMe-binarized, continuous lstsq,
+  HAVI-Methyl Dirichlet head, HDP-truncated) on a synthetic 4-tissue
+  mixture and emits `bench_tissue_loo.csv` with both in-panel and
+  per-method LOO RMSE. The HAVI-Methyl Dirichlet head wins on both
+  axes (0.019 in-panel, 0.070 LOO mean).
+- **Test suite** — 142 tests, all passing.
 
 ## What is *not* live data
 
@@ -70,7 +76,7 @@ fabricated numbers otherwise:
 | IMPL-05 | SVI population/sample updates | **Done.** Numpy `fit_svi_full` with Robbins-Monro and global recentering; torch `fit_svi_torch` integrates Set Transformer + Gaussian posterior head + Beta-Binomial reconstruction + Robbins-Monro updates. Phase 1.4 verification artifact at `outputs/tables/bench_torch_svi.csv`. |
 | IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **Pending:** true gradient-reversal head (current adversarial proxy is a context-variance penalty), real mQTL anchors. |
 | IMPL-07 | Conformal calibration wrapper | **Done.** Density-set + worst-stratum diagnostics shipped; `bench_ablation_matrix.py` row A5 wraps the trained model with `gaussian_conformal_intervals` on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target. |
-| IMPL-08 | Tissue-of-origin head | **LOO stress test shipped** on top of the existing Dirichlet head + HDP truncation. **Pending:** full Dirichlet-head training joined with the SVI loop. |
+| IMPL-08 | Tissue-of-origin head | **Done on the synthetic proxy.** Variance-weighted `dirichlet_head_predict` consumes posterior `(mean, var)`; `hdp_truncated_deconvolve` blends stick-breaking prior with lstsq; `leave_one_tissue_out_stress` is now method-pluggable. `bench_tissue_loo.csv` records per-method in-panel + LOO RMSE on a synthetic 4-tissue mixture. **Pending:** atlas swap (Loyfer 2023) when accession is verified; joining the head's training loss with `fit_svi_torch`. |
 | IMPL-09 | Full chromatin-aware simulator | **Validation runner shipped**; compact simulator emits the App. H axes. **Pending:** chromatin tracks, methylation-conditioned cut-bias model, full Strauss repulsion. |
 | IMPL-10 | Table and figure regeneration | **Done.** All Sec. 11 artifacts derive from `outputs/results.json` + `outputs/plot_data.npz`. |
 

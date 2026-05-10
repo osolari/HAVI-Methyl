@@ -321,6 +321,53 @@ def test_torch_svi_phase2_toggles_run_without_nan():
     assert state.elbo_history[-1] > state.elbo_history[0]
 
 
+# ---------------------------- Phase 3: tissue head ----------------------------
+
+
+def test_dirichlet_head_beats_lstsq_on_heteroskedastic_var():
+    """Variance-weighted Dirichlet head beats plain lstsq when posterior var varies."""
+    import havi_methyl as hm
+
+    rng = np.random.default_rng(0)
+    T, S, L = 4, 8, 60
+    R = rng.uniform(0, 1, size=(T, L))
+    pi_true = rng.dirichlet(np.ones(T), size=S)
+    var = np.where(rng.uniform(0, 1, size=L) < 0.3, 0.4, 0.005)
+    obs = pi_true @ R + rng.normal(0, np.sqrt(var), size=(S, L))
+    obs = np.clip(obs, 0, 1)
+    pi_dir = hm.dirichlet_head_predict(obs, np.tile(var, (S, 1)), R)
+    pi_lstsq = hm.deconvolve_least_squares(obs, R)
+    rmse_dir = float(np.sqrt(((pi_true - pi_dir) ** 2).mean()))
+    rmse_lstsq = float(np.sqrt(((pi_true - pi_lstsq) ** 2).mean()))
+    assert rmse_dir < rmse_lstsq
+    assert np.allclose(pi_dir.sum(axis=1), 1.0, atol=1e-9)
+
+
+def test_hdp_truncated_pi_sums_to_one_at_T64():
+    import havi_methyl as hm
+
+    pi = hm.hdp_truncated_pi(alpha=1.0, T_max=64, rng=42)
+    assert pi.shape == (64,)
+    assert np.allclose(pi.sum(), 1.0, atol=1e-9)
+    assert np.all(pi >= 0)
+
+
+def test_loo_method_pluggable():
+    """leave_one_tissue_out_stress accepts a custom deconvolution callable."""
+    import havi_methyl as hm
+
+    rng = np.random.default_rng(1)
+    T, S, L = 3, 6, 40
+    R = rng.uniform(0, 1, size=(T, L))
+    pi_true = rng.dirichlet(np.ones(T), size=S)
+    obs = pi_true @ R + rng.normal(0, 0.05, size=(S, L))
+    obs = np.clip(obs, 0, 1)
+    a = hm.leave_one_tissue_out_stress(pi_true, R, obs)
+    b = hm.leave_one_tissue_out_stress(pi_true, R, obs, method=hm.binarize_and_deconvolve)
+    # Different methods give different LOO RMSE.
+    assert a["mean_rmse"] != b["mean_rmse"]
+
+
 def test_ablation_matrix_runner_produces_six_rows(tmp_path, monkeypatch):
     """Sec. 12.3 ablation matrix runner emits one CSV row per A0..A5 configuration."""
     pytest.importorskip("torch")

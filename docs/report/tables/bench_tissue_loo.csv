@@ -1,0 +1,5 @@
+method,tissue_fraction_rmse,worst_tissue_rmse,loo_mean_rmse,loo_worst_rmse,_status
+FinaleMe-binarized + QP,0.11562584258203787,0.14591015602061272,0.11627637964860231,0.12369203840439721,"synthetic 4-tissue proxy (S=20, L=200, heteroskedastic posterior var); swap R for the verified Loyfer 2023 atlas to get real numbers"
+Continuous lstsq,0.06455350669830598,0.06940279803217404,0.10611645109991855,0.1232059662728174,"synthetic 4-tissue proxy (S=20, L=200, heteroskedastic posterior var); swap R for the verified Loyfer 2023 atlas to get real numbers"
+HAVI-Methyl Dirichlet head,0.018570658237240564,0.02194905445149927,0.06996706461181179,0.09293165203753344,"synthetic 4-tissue proxy (S=20, L=200, heteroskedastic posterior var); swap R for the verified Loyfer 2023 atlas to get real numbers"
+HDP-truncated (T_max=64),0.09036575218779454,0.1211102659353509,0.17558348144943653,0.19773688562223374,"synthetic 4-tissue proxy (S=20, L=200, heteroskedastic posterior var); swap R for the verified Loyfer 2023 atlas to get real numbers"

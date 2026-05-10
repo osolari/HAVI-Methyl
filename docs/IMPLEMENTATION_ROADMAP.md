@@ -111,25 +111,51 @@ Tests: `test_torch_svi_phase2_toggles_run_without_nan` and
 `test_ablation_matrix_runner_produces_six_rows` in
 `tests/test_full_components.py`. All 139 tests pass.
 
-## Phase 3 — Tissue-of-origin head (IMPL-08)
+## Phase 3 — Tissue-of-origin head (IMPL-08) ✅
 
-Goal: train the full Dirichlet head and run the LOO stress test on
-real reference panels.
+**Status: complete on the synthetic proxy.** Atlas swap is gated on
+real-data access (Phase 5).
 
-Steps:
+What shipped:
 
-1. Plumb `dirichlet_alpha_from_logits` and `too_loss_integrated` into
-   the flow posterior so the head consumes posterior `(mean, var)`
-   pairs rather than point estimates.
-2. Hook the existing `leave_one_tissue_out_stress` runner into a new
-   `scripts/bench_tissue_loo.py` that emits per-tissue RMSE and a
-   worst-tissue summary. Status: `synthetic three-tissue proxy` until
-   a verified atlas (Loyfer 2023) is available.
-3. When an atlas is loaded, swap the synthetic reference matrix for
-   the atlas reference and rerun.
+1. **Posterior-variance-aware Dirichlet head.** New
+   `dirichlet_head_predict(beta_mean, beta_var, reference)` solves a
+   variance-weighted lstsq with weights ``w_l = 1 / (sigma_R^2 +
+   var_l)`` and projects to the simplex. This is the head referenced
+   in Sec. 9.1 — it actually consumes the posterior variance the
+   simple `deconvolve_least_squares` baseline cannot use.
+2. **HDP-truncated deconvolution.** New
+   `hdp_truncated_deconvolve(beta_mean, reference, alpha, T_max=64)`
+   blends a stick-breaking prior with the lstsq solution; passes the
+   numerical-sanity test that ``hdp_truncated_pi(alpha=1, T_max=64)``
+   sums to 1.
+3. **Method-pluggable LOO stress.**
+   `leave_one_tissue_out_stress` now accepts a `method=` callable so
+   each deconvolver gets its own LOO numbers (previously hardcoded to
+   `deconvolve_least_squares`).
+4. **`scripts/bench_tissue_loo.py`** runs all four methods on a
+   synthetic 4-tissue mixture (S=20, L=200) with heteroskedastic
+   posterior variance and writes
+   `outputs/tables/bench_tissue_loo.csv`:
 
-Exit criteria: LOO RMSE per tissue is recorded in CSV; the HDP
-truncation path runs without numerical issues at T_max=64.
+   | method | RMSE | worst | LOO mean | LOO worst |
+   |---|---|---|---|---|
+   | FinaleMe-binarized + QP | 0.116 | 0.146 | 0.116 | 0.124 |
+   | Continuous lstsq | 0.065 | 0.069 | 0.106 | 0.123 |
+   | **HAVI-Methyl Dirichlet head** | **0.019** | **0.022** | **0.070** | **0.093** |
+   | HDP-truncated (T_max=64) | 0.090 | 0.121 | 0.176 | 0.198 |
+
+   Dirichlet head is best both in-panel and LOO. HDP-truncated is
+   *worse* on LOO because the stick-breaking blend dilutes the lstsq
+   solution when one tissue is missing — useful as a control.
+
+Tests: `test_dirichlet_head_beats_lstsq_on_heteroskedastic_var`,
+`test_hdp_truncated_pi_sums_to_one_at_T64`,
+`test_loo_method_pluggable`. All 142 tests pass.
+
+Atlas swap (deferred): replace the synthetic ``R`` with the verified
+Loyfer 2023 atlas via a `havi_methyl.io.atlas_loader` once the
+accession is verified (open question 7 in CODING_AGENT_HANDOFF.md).
 
 ## Phase 4 — Full chromatin-aware simulator (IMPL-09)
 

@@ -9,6 +9,6 @@ Flow FLOPs / step (analytical),6.442e+09,analytical from constants
 Total FLOPs / step (analytical),2.792e+10,analytical from constants
 Sustained throughput target (100.0 TFLOPs/s),3582 steps/s,planning estimate; verify on target hardware
 Wall time per epoch (planned 30M loci),2.0 s,planning estimate; verify on target hardware
-"Measured fit_svi_simplified seconds (S=12, L=4096, iter=20)",0.0037,measured on Darwin arm64 arm
-Measured fit_svi_simplified iters/sec,5350.93,measured on Darwin arm64 arm
+"Measured fit_svi_simplified seconds (S=12, L=4096, iter=20)",0.0038,measured on Darwin arm64 arm
+Measured fit_svi_simplified iters/sec,5278.73,measured on Darwin arm64 arm
 Measured final surrogate ELBO/pair,-3.829950,measured on Darwin arm64 arm

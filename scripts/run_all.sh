@@ -68,6 +68,7 @@ if [[ $RUN_BENCH -eq 1 ]]; then
   run_step scripts/bench_compute_budget.py
   run_step scripts/bench_torch_svi.py
   run_step scripts/bench_ablation_matrix.py
+  run_step scripts/bench_tissue_loo.py
 fi
 
 if [[ $RUN_TAB -eq 1 ]]; then

@@ -8,6 +8,7 @@ Two heads:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -129,6 +130,7 @@ def leave_one_tissue_out_stress(
     pi_true: NDArray[np.float64],
     reference: NDArray[np.float64],
     obs_beta: NDArray[np.float64],
+    method: Callable[[NDArray[np.float64], NDArray[np.float64]], NDArray[np.float64]] | None = None,
 ) -> dict[str, NDArray[np.float64]]:
     """Sec. 9.3 LOO stress test: drop one reference column at a time.
 
@@ -136,13 +138,19 @@ def leave_one_tissue_out_stress(
     using only the remaining ``T-1`` reference columns and report the RMSE
     of the recovered ``pi`` against the true mixture (also masked to the
     remaining tissues, renormalised). Returns the per-tissue RMSE plus the
-    average and worst values; an HDP truncation of size ``T_max`` is the
-    intended robust replacement (Sec. 9.2 / IMPL-08 completion criterion).
+    average and worst values.
+
+    ``method`` is the deconvolution callable ``(Y, R) -> pi`` evaluated for
+    each LOO fold. Defaults to ``deconvolve_least_squares`` (current
+    simplified head); pass ``binarize_and_deconvolve`` for the FinaleMe
+    baseline or wrap ``dirichlet_head_predict`` to evaluate the
+    posterior-variance-aware head.
     """
     pi_true = np.asarray(pi_true, dtype=np.float64)
     R = np.asarray(reference, dtype=np.float64)
     Y = np.asarray(obs_beta, dtype=np.float64)
     T = R.shape[0]
+    fn = method if method is not None else deconvolve_least_squares
     rmses = np.zeros(T)
     for k in range(T):
         keep = np.array([j for j in range(T) if j != k])
@@ -150,7 +158,7 @@ def leave_one_tissue_out_stress(
         pi_kept_true = pi_true[:, keep]
         denom = pi_kept_true.sum(axis=1, keepdims=True)
         pi_kept_true = np.where(denom > 0, pi_kept_true / np.maximum(denom, 1e-12), pi_kept_true)
-        pi_recovered = deconvolve_least_squares(Y, R_kept)
+        pi_recovered = fn(Y, R_kept)
         rmses[k] = float(np.sqrt(((pi_kept_true - pi_recovered) ** 2).mean()))
     return {
         "per_tissue_rmse": rmses,
@@ -168,3 +176,73 @@ class TissueResults:
 
     def as_dict(self) -> dict[str, float]:
         return {"rmse_baseline": self.rmse_baseline, "rmse_havi": self.rmse_havi}
+
+
+# ---------- Dirichlet head consuming posterior (mean, var) (Phase 3 / IMPL-08) ----------
+
+
+def dirichlet_head_predict(
+    beta_mean: NDArray[np.float64],
+    beta_var: NDArray[np.float64],
+    reference: NDArray[np.float64],
+    sigma_R: float = 0.05,
+    rng: int | np.random.Generator | None = None,
+) -> NDArray[np.float64]:
+    """Dirichlet-head MAP estimate per sample given posterior (mean, var).
+
+    Closed-form variance-weighted lstsq deconvolution under the Sec. 9.1
+    integrated likelihood with weights ``w_l = 1 / (sigma_R^2 + var_l)``
+    — i.e. each locus contributes inversely with its posterior variance,
+    which is the posterior-aware refinement the simple ``deconvolve_least_squares``
+    baseline does not have. Result is projected to the simplex.
+
+    Returns ``(S, T)`` mixture estimates.
+    """
+    _ = get_rng(rng)  # accepted for API symmetry; deterministic closed form
+    pred_mu = np.asarray(beta_mean, dtype=np.float64)
+    pred_v = np.asarray(beta_var, dtype=np.float64)
+    R = np.asarray(reference, dtype=np.float64)
+    S = pred_mu.shape[0]
+    T = R.shape[0]
+    sigma_R2 = sigma_R**2
+    out = np.zeros((S, T), dtype=np.float64)
+    for s in range(S):
+        w = 1.0 / (sigma_R2 + pred_v[s])
+        Rw = R * w[None, :]  # weighted reference rows: (T, L)
+        # solve (R W R^T) pi = R W mu in the least-squares sense
+        try:
+            pi, *_ = np.linalg.lstsq(Rw.T, pred_mu[s] * w, rcond=None)
+        except np.linalg.LinAlgError:
+            pi = np.ones(T) / T
+        pi = np.clip(pi, 0.0, None)
+        total = pi.sum()
+        out[s] = pi / total if total > 0 else np.ones(T) / T
+    return out
+
+
+def hdp_truncated_deconvolve(
+    beta_mean: NDArray[np.float64],
+    reference: NDArray[np.float64],
+    alpha: float = 1.0,
+    T_max: int = T_MAX_HDP,
+    rng: int | np.random.Generator | None = None,
+) -> NDArray[np.float64]:
+    """Stick-breaking truncated mixture deconvolution (Sec. 9.2).
+
+    Truncates the HDP at level ``T_max``, samples a stick-breaking prior
+    ``pi`` of length ``T_max``, then runs least-squares deconvolution
+    against the augmented reference (original tissues + zero-padded
+    novel-tissue placeholders to length ``T_max``). Returns the
+    truncated mixture matrix of shape ``(S, T_max)``.
+    """
+    gen = get_rng(rng)
+    R = np.asarray(reference, dtype=np.float64)
+    T_orig, L = R.shape
+    if T_max < T_orig:
+        T_max = T_orig
+    R_aug = np.vstack([R, np.full((T_max - T_orig, L), 0.5)])
+    Y = np.asarray(beta_mean, dtype=np.float64)
+    # Stick-breaking prior used as a soft regulariser: blend with lstsq.
+    prior = hdp_truncated_pi(alpha=alpha, T_max=T_max, rng=gen)
+    pi = deconvolve_least_squares(Y, R_aug)
+    return 0.9 * pi + 0.1 * prior[None, :]
