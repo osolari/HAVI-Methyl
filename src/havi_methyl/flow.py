@@ -299,6 +299,61 @@ try:  # pragma: no cover
             )
             return y, log_jac
 
+    class ConditionalNSFStack(nn.Module):
+        """Stack of K conditional rational-quadratic NSF blocks (Sec. 4.2).
+
+        ``forward(epsilon, context)`` maps a base sample epsilon ~ N(0,1)
+        through K blocks to yield ``eta`` and the cumulative log-Jacobian.
+        ``log_density(eta, context)`` evaluates ``log q_phi(eta | c)`` via
+        bisection inverse + change-of-variables.
+        """
+
+        def __init__(
+            self, context_dim: int, num_blocks: int = 6, num_bins: int = 8, B: float = 3.0
+        ):
+            super().__init__()
+            self.B = B
+            self.blocks = nn.ModuleList(
+                [
+                    ConditionalNSFBlock(context_dim=context_dim, num_bins=num_bins, B=B)
+                    for _ in range(num_blocks)
+                ]
+            )
+
+        def forward(
+            self, epsilon: torch.Tensor, context: torch.Tensor
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            log_jac = torch.zeros_like(epsilon)
+            x = epsilon
+            for block in self.blocks:
+                x, lj = block(x, context)
+                log_jac = log_jac + lj
+            return x, log_jac
+
+        def inverse(
+            self, eta: torch.Tensor, context: torch.Tensor, n_iter: int = 60, tol: float = 1e-6
+        ) -> torch.Tensor:
+            """Differentiable bisection inverse: returns ``eps`` with ``T(eps; c) ~ eta``."""
+            lo = torch.full_like(eta, -self.B + 1e-6)
+            hi = torch.full_like(eta, self.B - 1e-6)
+            for _ in range(n_iter):
+                mid = 0.5 * (lo + hi)
+                with torch.no_grad():
+                    y_mid, _ = self.forward(mid, context)
+                mask = y_mid < eta
+                lo = torch.where(mask, mid, lo)
+                hi = torch.where(mask, hi, mid)
+                if torch.all(hi - lo < tol):
+                    break
+            return 0.5 * (lo + hi)
+
+        def log_density(self, eta: torch.Tensor, context: torch.Tensor) -> torch.Tensor:
+            """``log q_phi(eta | c) = log N(eps;0,1) - log|dT/d eps|``."""
+            eps = self.inverse(eta, context)
+            _, log_jac = self.forward(eps, context)
+            log_base = -0.5 * eps**2 - 0.5 * np.log(2 * np.pi)
+            return log_base - log_jac
+
     HAS_TORCH = True
 
 except ImportError:  # pragma: no cover

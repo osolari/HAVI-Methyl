@@ -266,3 +266,31 @@ def test_evaluate_real_data_benchmark_runs_end_to_end():
         ):
             value = getattr(res, field)
             assert np.isfinite(value), f"{name}.{field} = {value}"
+
+
+# ---------------------------- Phase 1: torch SVI ----------------------------
+
+
+def test_torch_svi_end_to_end_smoke():
+    """Full encoder + Gaussian-head + plate-rescaled SVI runs and improves."""
+    pytest.importorskip("torch")
+    import havi_methyl as hm
+
+    if hm.fit_svi_torch is None:  # torch not available at import time
+        pytest.skip("torch not available")
+    sim = hm.simulate_dataset(S=4, L=20, coverage=2.0, rng=42)
+    state = hm.fit_svi_torch(
+        bags=sim.bags,
+        n_frag=sim.n,
+        n_meth=sim.n_meth,
+        n_iter=15,
+        config=hm.TorchSVIConfig(in_dim=5, hidden=16, num_inducing=8, num_layers=1),
+        seed=42,
+    )
+    assert len(state.elbo_history) == 15
+    assert state.elbo_history[-1] > state.elbo_history[0]
+    # Recentering residual is exactly enforced after each iteration.
+    assert abs(state.recentering_history[-1]) < 1e-5
+    mean, _std = hm.predict_with_torch_state(state, sim.bags, sim.n, n_samples=4)
+    assert mean.shape == sim.beta_sample.shape
+    assert np.all((mean >= 0.0) & (mean <= 1.0))

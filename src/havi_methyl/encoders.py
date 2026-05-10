@@ -133,28 +133,111 @@ def masked_attention(
     return weights @ v
 
 
+def multi_head_attention(
+    queries: NDArray[np.float64],
+    keys: NDArray[np.float64],
+    values: NDArray[np.float64],
+    num_heads: int,
+    key_mask: NDArray[np.bool_] | None = None,
+) -> NDArray[np.float64]:
+    """Multi-head scaled dot-product attention; concatenated along the head dim.
+
+    Each input has trailing dimension ``num_heads * head_dim``. Heads are
+    split, attended independently, then concatenated. No output projection
+    is applied here — wrap with a linear layer at the call site.
+    """
+    q = np.asarray(queries, dtype=np.float64)
+    k = np.asarray(keys, dtype=np.float64)
+    v = np.asarray(values, dtype=np.float64)
+    if q.shape[-1] % num_heads:
+        raise ValueError(f"dim {q.shape[-1]} not divisible by num_heads {num_heads}")
+    head_dim = q.shape[-1] // num_heads
+    out_per_head = []
+    for h in range(num_heads):
+        sl = slice(h * head_dim, (h + 1) * head_dim)
+        out_per_head.append(masked_attention(q[..., sl], k[..., sl], v[..., sl], key_mask=key_mask))
+    return np.concatenate(out_per_head, axis=-1)
+
+
+def layer_norm(
+    x: NDArray[np.float64],
+    gamma: NDArray[np.float64],
+    beta: NDArray[np.float64],
+    eps: float = 1e-5,
+) -> NDArray[np.float64]:
+    """Per-row layer normalisation with affine ``gamma`` / ``beta``."""
+    mean = x.mean(axis=-1, keepdims=True)
+    var = x.var(axis=-1, keepdims=True)
+    return gamma * (x - mean) / np.sqrt(var + eps) + beta
+
+
+def gelu(x: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Gaussian-error linear unit (exact, not the tanh approximation)."""
+    from scipy.special import erf
+
+    return 0.5 * x * (1.0 + erf(x / np.sqrt(2.0)))
+
+
+@dataclass
+class FeedForwardNumpy:
+    """Two-layer GELU MLP with the standard ``hidden=4*dim`` expansion."""
+
+    W1: NDArray[np.float64]
+    b1: NDArray[np.float64]
+    W2: NDArray[np.float64]
+    b2: NDArray[np.float64]
+
+    @classmethod
+    def random(
+        cls, dim: int, expansion: int = 4, rng: int | np.random.Generator | None = None
+    ) -> FeedForwardNumpy:
+        from havi_methyl.utils import get_rng
+
+        gen = get_rng(rng)
+        scale1 = 1.0 / np.sqrt(dim)
+        scale2 = 1.0 / np.sqrt(dim * expansion)
+        return cls(
+            W1=gen.standard_normal((dim, dim * expansion)) * scale1,
+            b1=np.zeros(dim * expansion),
+            W2=gen.standard_normal((dim * expansion, dim)) * scale2,
+            b2=np.zeros(dim),
+        )
+
+    def forward(self, x: NDArray[np.float64]) -> NDArray[np.float64]:
+        return gelu(x @ self.W1 + self.b1) @ self.W2 + self.b2
+
+
 @dataclass
 class ISABNumpy:
-    """Numpy induced-set attention block (Sec. 4.3).
+    """Numpy induced-set attention block (Sec. 4.3 / App. D).
 
-    Single-head, layernorm-free reference implementation. Two-step attention:
-    (1) inducing points attend to ``X``; (2) ``X`` attends to the inducing
-    summary. Memory is O(n m) rather than O(n^2). Used in tests where torch
-    is not installed.
+    Multi-head attention with layernorm + GELU MLP residual following the
+    Vaswani-2017 / Lee-2019 convention used by the production torch block.
+    Two-step attention: (1) inducing points attend to ``X``; (2) ``X``
+    attends to the inducing summary. Memory is O(n m) rather than O(n^2).
     """
 
     inducing: NDArray[np.float64]  # (m, dim)
+    num_heads: int
     W_q1: NDArray[np.float64]
     W_k1: NDArray[np.float64]
     W_v1: NDArray[np.float64]
+    W_o1: NDArray[np.float64]
     W_q2: NDArray[np.float64]
     W_k2: NDArray[np.float64]
     W_v2: NDArray[np.float64]
+    W_o2: NDArray[np.float64]
+    ln1_g: NDArray[np.float64]
+    ln1_b: NDArray[np.float64]
+    ln2_g: NDArray[np.float64]
+    ln2_b: NDArray[np.float64]
+    ff: FeedForwardNumpy
 
     @classmethod
     def random(
         cls,
         dim: int,
+        num_heads: int = 4,
         num_inducing: int = 64,
         rng: int | np.random.Generator | None = None,
     ) -> ISABNumpy:
@@ -164,12 +247,20 @@ class ISABNumpy:
         scale = 1.0 / np.sqrt(dim)
         return cls(
             inducing=gen.standard_normal((num_inducing, dim)) * scale,
+            num_heads=num_heads,
             W_q1=gen.standard_normal((dim, dim)) * scale,
             W_k1=gen.standard_normal((dim, dim)) * scale,
             W_v1=gen.standard_normal((dim, dim)) * scale,
+            W_o1=gen.standard_normal((dim, dim)) * scale,
             W_q2=gen.standard_normal((dim, dim)) * scale,
             W_k2=gen.standard_normal((dim, dim)) * scale,
             W_v2=gen.standard_normal((dim, dim)) * scale,
+            W_o2=gen.standard_normal((dim, dim)) * scale,
+            ln1_g=np.ones(dim),
+            ln1_b=np.zeros(dim),
+            ln2_g=np.ones(dim),
+            ln2_b=np.zeros(dim),
+            ff=FeedForwardNumpy.random(dim, rng=gen),
         )
 
     def forward(
@@ -177,46 +268,77 @@ class ISABNumpy:
     ) -> NDArray[np.float64]:
         x = np.asarray(x, dtype=np.float64)
         # Step 1: inducing points attend to X.
-        H = masked_attention(
+        attn1 = multi_head_attention(
             self.inducing @ self.W_q1,
             x @ self.W_k1,
             x @ self.W_v1,
+            num_heads=self.num_heads,
             key_mask=mask,
         )
-        H = H + self.inducing  # residual
+        H = layer_norm(self.inducing + attn1 @ self.W_o1, self.ln1_g, self.ln1_b)
         # Step 2: X attends to H (no mask on H, all valid).
-        Y = masked_attention(x @ self.W_q2, H @ self.W_k2, H @ self.W_v2)
-        Y = Y + x  # residual
-        return Y
+        attn2 = multi_head_attention(
+            x @ self.W_q2,
+            H @ self.W_k2,
+            H @ self.W_v2,
+            num_heads=self.num_heads,
+        )
+        Y = layer_norm(x + attn2 @ self.W_o2, self.ln2_g, self.ln2_b)
+        # GELU MLP residual.
+        return Y + self.ff.forward(Y)
 
 
 @dataclass
 class PMANumpy:
-    """Pooling by multi-head attention with a single learned seed (Sec. 4.3)."""
+    """Pooling by multi-head attention with a single learned seed (Sec. 4.3).
+
+    Uses the same multi-head attention and post-attention layernorm as
+    ``ISABNumpy``; the seed acts as a single learned query.
+    """
 
     seed: NDArray[np.float64]  # (1, dim)
+    num_heads: int
     W_q: NDArray[np.float64]
     W_k: NDArray[np.float64]
     W_v: NDArray[np.float64]
+    W_o: NDArray[np.float64]
+    ln_g: NDArray[np.float64]
+    ln_b: NDArray[np.float64]
 
     @classmethod
-    def random(cls, dim: int, rng: int | np.random.Generator | None = None) -> PMANumpy:
+    def random(
+        cls,
+        dim: int,
+        num_heads: int = 4,
+        rng: int | np.random.Generator | None = None,
+    ) -> PMANumpy:
         from havi_methyl.utils import get_rng
 
         gen = get_rng(rng)
         scale = 1.0 / np.sqrt(dim)
         return cls(
             seed=gen.standard_normal((1, dim)) * scale,
+            num_heads=num_heads,
             W_q=gen.standard_normal((dim, dim)) * scale,
             W_k=gen.standard_normal((dim, dim)) * scale,
             W_v=gen.standard_normal((dim, dim)) * scale,
+            W_o=gen.standard_normal((dim, dim)) * scale,
+            ln_g=np.ones(dim),
+            ln_b=np.zeros(dim),
         )
 
     def forward(
         self, x: NDArray[np.float64], mask: NDArray[np.bool_] | None = None
     ) -> NDArray[np.float64]:
         x = np.asarray(x, dtype=np.float64)
-        out = masked_attention(self.seed @ self.W_q, x @ self.W_k, x @ self.W_v, key_mask=mask)
+        attn = multi_head_attention(
+            self.seed @ self.W_q,
+            x @ self.W_k,
+            x @ self.W_v,
+            num_heads=self.num_heads,
+            key_mask=mask,
+        )
+        out = layer_norm(self.seed + attn @ self.W_o, self.ln_g, self.ln_b)
         return out.squeeze(0)
 
 
@@ -244,6 +366,7 @@ class SetTransformerNumpy:
         hidden: int = 64,
         out_dim: int = 64,
         num_layers: int = 2,
+        num_heads: int = 4,
         num_inducing: int = 16,
         rng: int | np.random.Generator | None = None,
     ) -> SetTransformerNumpy:
@@ -256,10 +379,10 @@ class SetTransformerNumpy:
             proj_in=gen.standard_normal((in_dim, hidden)) * scale_in,
             bias_in=np.zeros(hidden),
             isabs=[
-                ISABNumpy.random(hidden, num_inducing=num_inducing, rng=gen)
+                ISABNumpy.random(hidden, num_heads=num_heads, num_inducing=num_inducing, rng=gen)
                 for _ in range(num_layers)
             ],
-            pma=PMANumpy.random(hidden, rng=gen),
+            pma=PMANumpy.random(hidden, num_heads=num_heads, rng=gen),
             proj_out=gen.standard_normal((hidden, out_dim)) * scale_out,
             bias_out=np.zeros(out_dim),
         )

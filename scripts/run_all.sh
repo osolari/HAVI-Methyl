@@ -66,6 +66,7 @@ if [[ $RUN_BENCH -eq 1 ]]; then
   run_step scripts/bench_finaleme_realdata.py
   run_step scripts/bench_simulator_validation.py
   run_step scripts/bench_compute_budget.py
+  run_step scripts/bench_torch_svi.py
 fi
 
 if [[ $RUN_TAB -eq 1 ]]; then

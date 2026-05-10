@@ -92,15 +92,19 @@ from havi_methyl.elbo import (
 )
 from havi_methyl.encoders import (
     DilatedCNNSequenceEncoder,
+    FeedForwardNumpy,
     FrozenEmbeddingProjection,
     ISABNumpy,
     PMANumpy,
     SetMLPEncoder,
     SetTransformerNumpy,
+    gelu,
+    layer_norm,
     make_context_vector,
     masked_attention,
     masked_mean_pool,
     mean_pool_fragment_bag,
+    multi_head_attention,
     one_hot_dna,
     reverse_complement,
     sum_pool_fragment_bag,
@@ -163,6 +167,19 @@ from havi_methyl.svi import (
     recentering_residual,
     robbins_monro_step,
 )
+
+try:
+    from havi_methyl.torch_svi import (
+        TorchSVIConfig,
+        TorchSVIState,
+        fit_svi_torch,
+        predict_with_torch_state,
+    )
+except ImportError:  # pragma: no cover
+    TorchSVIConfig = None  # type: ignore[assignment]
+    TorchSVIState = None  # type: ignore[assignment]
+    fit_svi_torch = None  # type: ignore[assignment]
+    predict_with_torch_state = None  # type: ignore[assignment]
 from havi_methyl.tissue import (
     TissueResults,
     binarize_and_deconvolve,
@@ -281,15 +298,19 @@ __all__ = [
     "StackedFlow",
     "conditional_log_density",
     "DilatedCNNSequenceEncoder",
+    "FeedForwardNumpy",
     "FrozenEmbeddingProjection",
     "ISABNumpy",
     "PMANumpy",
     "SetMLPEncoder",
     "SetTransformerNumpy",
+    "gelu",
+    "layer_norm",
     "make_context_vector",
     "masked_attention",
     "masked_mean_pool",
     "mean_pool_fragment_bag",
+    "multi_head_attention",
     "one_hot_dna",
     "reverse_complement",
     "sum_pool_fragment_bag",

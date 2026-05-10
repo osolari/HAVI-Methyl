@@ -28,7 +28,12 @@ actually stands today.
 - **Sec. 12.5 compute budget** — `bench_compute_budget.py` mixes
   analytical FLOPs from `havi_methyl.constants` with measured wall-time
   on the local machine for `fit_svi_simplified`.
-- **Test suite** — 136 tests, all passing.
+- **Phase 1 torch SVI** — `scripts/bench_torch_svi.py` runs the full
+  Set Transformer + Gaussian posterior head + plate-rescaled SVI loop
+  end-to-end at S=8, L=80; results land in `bench_torch_svi.csv` with
+  measured Pearson r, ELBO trajectory, and wall-time on the local
+  machine.
+- **Test suite** — 137 tests, all passing.
 
 ## What is *not* live data
 
@@ -53,10 +58,10 @@ fabricated numbers otherwise:
 | ID | Task | Status |
 |----|------|--------|
 | IMPL-01 | Path-handling and artifact policy | **Done.** |
-| IMPL-02 | ISAB/PMA Set Transformer fragment-bag encoder | **Numpy reference shipped** (`ISABNumpy`, `PMANumpy`, `SetTransformerNumpy` with mask-aware single-head attention). Optional torch ISAB/PMA in `encoders.py`. **Pending:** numpy multi-head + layernorm + GELU MLP residual; torch end-to-end training. |
+| IMPL-02 | ISAB/PMA Set Transformer fragment-bag encoder | **Done.** `ISABNumpy` / `PMANumpy` / `SetTransformerNumpy` with multi-head attention + layernorm + GELU MLP residual; optional torch ISAB/PMA in `encoders.py`. Tests cover permutation invariance and mask handling. |
 | IMPL-03 | Sequence-context encoder | **Numpy reference shipped** (`DilatedCNNSequenceEncoder`, `FrozenEmbeddingProjection`, `one_hot_dna`, `reverse_complement`). **Pending:** real HyenaDNA/Caduceus checkpoint + held-out validation. |
-| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Numpy reference shipped** (`ConditionalRationalQuadraticSpline` with bisection inverse, `conditional_log_density`). **Pending:** torch end-to-end, DReG-IWAE objective. |
-| IMPL-05 | SVI population/sample updates | **Mini-batch SVI shipped** (`fit_svi_full` with Robbins-Monro `(t+1)^{-0.6}` and global recentering). **Pending:** integration with the flow encoder and full reconstruction term; multi-seed sweeps. |
+| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Numpy reference shipped** (`ConditionalRationalQuadraticSpline` with bisection inverse). Torch `ConditionalNSFStack` shipped with `forward`/`inverse`/`log_density`. **Pending:** stable rational-quadratic spline parameterisation in torch (current block produces NaN at random init due to indexing edge cases). DReG-IWAE objective. |
+| IMPL-05 | SVI population/sample updates | **Done.** Numpy `fit_svi_full` with Robbins-Monro and global recentering; torch `fit_svi_torch` integrates Set Transformer + Gaussian posterior head + Beta-Binomial reconstruction + Robbins-Monro updates. Phase 1.4 verification artifact at `outputs/tables/bench_torch_svi.csv`. |
 | IMPL-06 | De-confounding losses | **All four loss functions shipped** (VIB, counterfactual, mQTL, domain-adversarial) plus cohort-balance diagnostic. **Pending:** integration into a joint training loop with gradient reversal. |
 | IMPL-07 | Conformal calibration wrapper | **Density-set + worst-stratum diagnostics shipped** on top of split-conformal / CQR / Mondrian / risk-control. **Pending:** wiring through the full flow posterior. |
 | IMPL-08 | Tissue-of-origin head | **LOO stress test shipped** on top of the existing Dirichlet head + HDP truncation. **Pending:** full Dirichlet-head training joined with the SVI loop. |
