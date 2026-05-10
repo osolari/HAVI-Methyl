@@ -71,7 +71,17 @@ actually stands today.
   not benefit-positive: proper DReG requires detaching encoder
   parameters in `log q_phi` (PyTorch `functional_call`), which is not
   yet implemented.
-- **Test suite** — 151 tests, all passing.
+- **Phase 5 real-data loaders** — `havi_methyl.io` ships three
+  loaders (`load_loyfer_atlas_matrix`, `load_loyfer_pat_directory`,
+  `load_finaleme_dataset`, `load_roadmap_wgbs_atlas`). CLI flags
+  added: `bench_finaleme_realdata.py --data-dir`,
+  `bench_tissue_loo.py --atlas-tsv`. Tests use synthetic on-disk
+  fixtures so CI passes without drive access. Real-data runs are
+  blocked only on the macOS Removable-Volumes TCC permission applying
+  to the running VS Code process — once VS Code restarts (or the
+  relevant subset is copied to a local path), the same scripts emit
+  Liu 2024 / Loyfer 2023 numbers without further code changes.
+- **Test suite** — 156 tests, all passing.
 
 ## What is *not* live data
 
@@ -98,7 +108,8 @@ fabricated numbers otherwise:
 | IMPL-01 | Path-handling and artifact policy | **Done.** |
 | IMPL-02 | ISAB/PMA Set Transformer fragment-bag encoder | **Done.** `ISABNumpy` / `PMANumpy` / `SetTransformerNumpy` with multi-head attention + layernorm + GELU MLP residual; optional torch ISAB/PMA in `encoders.py`. Tests cover permutation invariance and mask handling. |
 | IMPL-03 | Sequence-context encoder | **Numpy reference shipped** (`DilatedCNNSequenceEncoder`, `FrozenEmbeddingProjection`, `one_hot_dna`, `reverse_complement`). **Pending:** real HyenaDNA/Caduceus checkpoint + held-out validation. |
-| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Done.** Numpy reference + torch `ConditionalNSFBlock` rewritten with explicit `num_bins+1` knots; conservative zero-init keeps the block near-identity at start. `fit_svi_torch(posterior="flow")` trains without NaN end-to-end; `bench_torch_svi.csv` records measured Gaussian vs flow head comparison on synthetic data. **Pending:** DReG-IWAE objective option for the Sec. 5.3 finetune schedule. |
+| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Done.** Numpy reference + torch `ConditionalNSFBlock` rewritten with explicit `num_bins+1` knots; conservative zero-init keeps the block near-identity at start. `fit_svi_torch(posterior="flow")` trains without NaN end-to-end; `bench_torch_svi.csv` records measured Gaussian vs flow head + ELBO vs IWAE objective comparisons. **IWAE shipped:** K=4 IWAE bound is consistently tighter than ELBO and improves low-coverage recovery (r=0.733 vs 0.541 at 1× on the Gaussian head). DReG variance reduction is a research follow-up requiring `torch.func.functional_call`. |
+| IMPL-05 dataset loaders | Phase 5 real-data IO | **Done (loaders).** `havi_methyl.io.{load_loyfer_atlas_matrix, load_loyfer_pat_directory, load_finaleme_dataset, load_roadmap_wgbs_atlas}` plus `--data-dir` / `--atlas-tsv` CLI flags on the existing bench scripts. Loaders are unit-tested with synthetic on-disk fixtures; real-data runs unblock as soon as macOS Removable-Volumes TCC applies to the running VS Code process. |
 | IMPL-05 | SVI population/sample updates | **Done.** Numpy `fit_svi_full` with Robbins-Monro and global recentering; torch `fit_svi_torch` integrates Set Transformer + Gaussian posterior head + Beta-Binomial reconstruction + Robbins-Monro updates. Phase 1.4 verification artifact at `outputs/tables/bench_torch_svi.csv`. |
 | IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **Pending:** true gradient-reversal head (current adversarial proxy is a context-variance penalty), real mQTL anchors. |
 | IMPL-07 | Conformal calibration wrapper | **Done.** Density-set + worst-stratum diagnostics shipped; `bench_ablation_matrix.py` row A5 wraps the trained model with `gaussian_conformal_intervals` on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target. |

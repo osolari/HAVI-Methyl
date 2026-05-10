@@ -1,15 +1,18 @@
-"""Real-data FinaleMe benchmark runner (Sec. 12).
+"""FinaleMe benchmark runner with optional real-data path (Phase 5).
 
-The 80 paired WGS/WGBS samples of Liu et al. 2024 are gated behind the
-European Genome-Phenome Archive. Until the EGA-controlled dataset is
-available, this script runs the *same* benchmark protocol against a
-synthetic FinaleMe-proxy at S=80 / L=1000 / coverage=1x.
+Two modes:
 
-Every metric (Pearson, Spearman, AUC at beta=0.5, interval ECE, ICC(2,1),
-DMR F1) is computed by the actual pipeline. The CSV ``_status`` column
-makes clear that the underlying data is synthetic; nothing is fabricated.
-When EGA access is secured, replace the simulator block with the real
-loader and rerun.
+  - Default: run the synthetic FinaleMe-proxy at S=80 / L=1000 /
+    coverage=1x with an injected case/control DMR signal so the DMR F1
+    metric is exercised. Every row's ``_status`` column says
+    ``synthetic FinaleMe-proxy (...)``.
+  - ``--data-dir <path>``: load the real Liu 2024 paired WGS+WGBS
+    dataset from that directory using ``havi_methyl.io.load_finaleme_dataset``.
+    The metric stack is identical; ``_status`` rows say
+    ``Liu 2024 (data-dir=..., n_samples=..., n_loci=...)``.
+
+Every value in the resulting CSV is the actual pipeline output for the
+selected mode — nothing is fabricated.
 """
 
 from __future__ import annotations
@@ -19,26 +22,15 @@ import havi_methyl as hm
 import numpy as np
 
 
-def main() -> None:
-    parser = _common.base_parser("FinaleMe real-data benchmark scaffolding (Sec. 12).")
-    parser.add_argument("--samples", type=int, default=80)
-    parser.add_argument("--loci", type=int, default=1000)
-    parser.add_argument("--coverage", type=float, default=1.0)
-    args = parser.parse_args()
-
+def _run_synthetic_proxy(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, int]]:
     rng = np.random.default_rng(args.seed)
     sim = hm.simulate_dataset(args.samples, args.loci, args.coverage, rng=rng)
-    # Inject a synthetic case/control DMR signal so the DMR F1 metric is
-    # well defined: half of the samples have a +0.4 beta shift at 10% of
-    # loci. This is a deliberately strong signal — the proxy is meant to
-    # exercise the metric, not to estimate FinaleMe-vs-HAVI effect sizes.
     n_dmr = max(1, args.loci // 10)
     dmr_idx = rng.choice(args.loci, size=n_dmr, replace=False)
     case_idx = np.arange(args.samples // 2)
     sim.beta_sample[case_idx[:, None], dmr_idx] = np.clip(
         sim.beta_sample[case_idx[:, None], dmr_idx] + 0.4, 0.02, 0.98
     )
-    # Re-simulate the affected fragment bags so the encoder sees the shift.
     for s in case_idx:
         for ell in dmr_idx:
             n = int(sim.n[s, ell])
@@ -57,15 +49,74 @@ def main() -> None:
         truth_split=truth_split,
         rng=rng,
     )
-
     status = (
         f"synthetic FinaleMe-proxy (S={args.samples}, L={args.loci}, "
-        f"coverage={args.coverage}x); replace with EGA Liu 2024 loader for "
-        "real-data values"
+        f"coverage={args.coverage}x); replace with --data-dir for real Liu 2024 numbers"
     )
+    return results, sim.n, sim.beta_sample, status, {"S": args.samples, "L": args.loci}
+
+
+def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, int]]:
+    print(f"Loading FinaleMe paired WGS/WGBS from {args.data_dir} ...")
+    ds = hm.load_finaleme_dataset(
+        args.data_dir,
+        locus_panel=args.locus_panel,
+        max_samples=args.samples,
+        max_loci=args.loci,
+    )
+    S, L = ds.beta_sample.shape
+    print(f"Loaded {S} paired samples x {L} loci")
+    # Two-group split: even/odd sample index. Without explicit case/control
+    # labels we report by the natural sample partition for DMR F1.
+    idx_a = np.arange(0, S, 2)
+    idx_b = np.arange(1, S, 2)
+    if len(idx_a) == 0 or len(idx_b) == 0:
+        idx_a = np.arange(max(1, S // 2))
+        idx_b = np.arange(max(1, S // 2), S)
+    rng = np.random.default_rng(args.seed)
+    results = hm.evaluate_real_data_benchmark(
+        bags=ds.bags,
+        n_frag=ds.n,
+        truth_beta=ds.beta_sample,
+        truth_split=(idx_a, idx_b),
+        rng=rng,
+    )
+    status = (
+        f"Liu 2024 (data-dir={args.data_dir}, n_samples={S}, n_loci={L}, "
+        f"locus_panel={args.locus_panel or 'default-grid'})"
+    )
+    return results, ds.n, ds.beta_sample, status, {"S": S, "L": L}
+
+
+def main() -> None:
+    parser = _common.base_parser("FinaleMe benchmark (Sec. 12).")
+    parser.add_argument("--samples", type=int, default=80)
+    parser.add_argument("--loci", type=int, default=1000)
+    parser.add_argument("--coverage", type=float, default=1.0)
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default=None,
+        help=(
+            "Path to the Liu 2024 FinaleMe directory containing frag_wgs/ "
+            "and meth_wgbs/. When set, runs against real data instead of "
+            "the synthetic proxy."
+        ),
+    )
+    parser.add_argument(
+        "--locus-panel",
+        type=str,
+        default=None,
+        help="Optional BED file giving the panel of (chrom, start, end) loci to score.",
+    )
+    args = parser.parse_args()
+
+    if args.data_dir:
+        results, _n, _beta, status, _ = _run_real_data(args)
+    else:
+        results, _n, _beta, status, _ = _run_synthetic_proxy(args)
+
     rows = [r.as_row(name, status) for name, r in results.items()]
-    # Append placeholders for external baselines we cannot run without their
-    # codebases; keep the schema parity with the report table.
     for ext in ("FinaleMe", "DeepCpG", "Elastic-net regression", "MethylBERT"):
         rows.append(
             {
@@ -76,7 +127,7 @@ def main() -> None:
                 "ece_credible": "XX",
                 "icc_2_1": "XX",
                 "dmr_f1": "XX",
-                "_status": (f"external baseline {ext} requires its own codebase; placeholder"),
+                "_status": f"external baseline {ext} requires its own codebase; placeholder",
             }
         )
 

@@ -183,6 +183,13 @@ except ImportError:  # pragma: no cover
     TorchSVIState = None  # type: ignore[assignment]
     fit_svi_torch = None  # type: ignore[assignment]
     predict_with_torch_state = None  # type: ignore[assignment]
+
+from havi_methyl.io import (
+    load_finaleme_dataset,
+    load_loyfer_atlas_matrix,
+    load_loyfer_pat_directory,
+    load_roadmap_wgbs_atlas,
+)
 from havi_methyl.tissue import (
     TissueResults,
     binarize_and_deconvolve,
@@ -307,6 +314,10 @@ __all__ = [
     "RationalQuadraticSpline",
     "StackedFlow",
     "conditional_log_density",
+    "load_finaleme_dataset",
+    "load_loyfer_atlas_matrix",
+    "load_loyfer_pat_directory",
+    "load_roadmap_wgbs_atlas",
     "DilatedCNNSequenceEncoder",
     "FeedForwardNumpy",
     "FrozenEmbeddingProjection",

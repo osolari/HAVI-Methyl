@@ -32,6 +32,17 @@ def main() -> None:
     parser.add_argument("--n-tissues", type=int, default=4)
     parser.add_argument("--samples", type=int, default=20)
     parser.add_argument("--loci", type=int, default=200)
+    parser.add_argument(
+        "--atlas-tsv",
+        type=str,
+        default=None,
+        help=(
+            "Path to a precomputed Loyfer-style atlas TSV "
+            "(e.g. ecd/data_resources/human_methylome_atlas/human_methylome_atlas.tsv). "
+            "When set, the synthetic reference panel is replaced by the real "
+            "atlas matrix and pi_true is drawn from a Dirichlet prior."
+        ),
+    )
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
@@ -39,9 +50,20 @@ def main() -> None:
     S = args.samples
     L = args.loci
 
-    # Synthetic reference panel + heteroskedastic posterior variance so the
-    # variance-weighted Dirichlet head and lstsq differ in a measurable way.
-    R = rng.uniform(0.0, 1.0, size=(T, L))
+    if args.atlas_tsv:
+        print(f"Loading Loyfer atlas TSV from {args.atlas_tsv} ...")
+        atlas = hm.load_loyfer_atlas_matrix(args.atlas_tsv)
+        T_full = atlas.n_tissues
+        L_full = atlas.n_loci
+        # Subsample loci/tissues to the requested shapes.
+        loci_idx = rng.choice(L_full, size=min(L, L_full), replace=False)
+        tissue_idx = rng.choice(T_full, size=min(T, T_full), replace=False)
+        R = atlas.reference[np.ix_(tissue_idx, loci_idx)]
+        T, L = R.shape
+        tissue_label = f"Loyfer 2023 (T={T}/{T_full}, L={L}/{L_full}, atlas={args.atlas_tsv})"
+    else:
+        R = rng.uniform(0.0, 1.0, size=(T, L))
+        tissue_label = f"synthetic {T}-tissue proxy (S={S}, L={L}, heteroskedastic posterior var)"
     pi_true = rng.dirichlet(np.ones(T), size=S)
     beta_var = np.where(rng.uniform(0, 1, size=L) < 0.3, 0.4, 0.005)
     obs = pi_true @ R + rng.normal(0, np.sqrt(beta_var), size=(S, L))
@@ -71,10 +93,7 @@ def main() -> None:
     }
 
     rows = []
-    status = (
-        f"synthetic {T}-tissue proxy (S={S}, L={L}, heteroskedastic posterior var); "
-        "swap R for the verified Loyfer 2023 atlas to get real numbers"
-    )
+    status = tissue_label + ("; swap --atlas-tsv to use a real atlas" if not args.atlas_tsv else "")
     for name, (pi_pred, deconv_fn) in methods.items():
         per_tissue = np.sqrt(((pi_true - pi_pred) ** 2).mean(axis=0))
         rmse = float(np.sqrt(((pi_true - pi_pred) ** 2).mean()))

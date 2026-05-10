@@ -73,6 +73,32 @@ bash scripts/run_all.sh --benchmarks    # only benchmarks
 make report                             # regenerate figures + recompile docs/report/main.pdf
 ```
 
+## Running benchmarks against real data (Phase 5)
+
+The synthetic-proxy benches accept `--data-dir` / `--atlas-tsv` flags.
+Pointing them at the corresponding lab data switches `_status` columns
+from `synthetic ... proxy` to real-data attribution; numbers are the
+real pipeline output.
+
+```bash
+# Liu 2024 paired WGS/WGBS FinaleMe benchmark.
+python3 scripts/bench_finaleme_realdata.py \
+    --data-dir /path/to/finaleme \
+    --locus-panel /path/to/panel.bed \
+    --samples 80 --loci 5000
+
+# Loyfer 2023 atlas LOO tissue-of-origin benchmark.
+python3 scripts/bench_tissue_loo.py \
+    --atlas-tsv /path/to/human_methylome_atlas.tsv \
+    --n-tissues 12 --loci 1000
+```
+
+Loaders live in `havi_methyl.io`: `load_finaleme_dataset`,
+`load_loyfer_atlas_matrix`, `load_loyfer_pat_directory`,
+`load_roadmap_wgbs_atlas`. Each returns a dataclass shaped to drop into
+the existing pipeline; see `tests/test_io_loaders.py` for the
+expected on-disk format.
+
 `make report` requires a pdfLaTeX installation; on macOS, `brew install --cask
 basictex` (≈100 MB, requires sudo) is the smallest path. The shipped
 `docs/report/main.pdf` was built with the original deliverable's TeX

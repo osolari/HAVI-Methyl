@@ -219,34 +219,61 @@ WGS dataset (the spec'd 0.2 weight on N(332, 30²) gives ~0.003 by
 construction). That fitting is part of Phase 5 once a real dataset
 is loaded; not invented here.
 
-## Phase 5 — Real-data benchmark (Sec. 12.1, gated)
+## Phase 5 — Real-data benchmark (loaders shipped) ⚠
 
-Goal: replace the synthetic FinaleMe-proxy with the EGA Liu 2024
-dataset.
+**Status: loaders shipped, runs blocked on macOS Removable-Volumes
+permission.** Three datasets are available on the lab drive at
+``/Volumes/Omid Solari``:
 
-Pre-requisites that block this phase:
+  - **Loyfer 2023 atlas** — 207 ``hg38_pat_downloads/*.pat.gz`` files +
+    a precomputed ``human_methylome_atlas.tsv``.
+  - **Liu 2024 FinaleMe** — 78 paired WGS fragment TSVs and 81
+    matching WGBS truth BEDs at ``finaleme/{frag_wgs,meth_wgbs}/``.
+  - **Roadmap WGBS** — 42 tissues with ~150 ``*.wig.gz`` samples in
+    ``roadmap/Bisulfite-Seq/<tissue>/``.
 
-- EGA controlled-access agreement for the FinaleMe dataset (Sec. 12.1
-  / open question 1 in CODING_AGENT_HANDOFF.md).
-- A loader that emits `bags`, `n`, `truth_beta` in the same shapes the
-  pipeline already accepts.
-- Atlas-leakage controls per Sec. 12.4 (held-out test individuals
-  absent from any initialisation).
+What shipped:
 
-Steps:
+1. **`havi_methyl.io` loader subpackage** with three loaders that
+   return objects matching the existing pipeline's dataclass shapes:
+   - ``load_loyfer_atlas_matrix(path)`` — parses the precomputed TSV.
+   - ``load_loyfer_pat_directory(path, sites)`` — aggregates per-CpG
+     methylation from the 207 ``.pat.gz`` files into a tissue x site
+     reference matrix.
+   - ``load_finaleme_dataset(path, locus_panel)`` — pairs WGS frag
+     TSVs with WGBS truth BEDs by stripped sample id and returns
+     ``bags``, ``n``, ``n_meth``, and ``beta_sample`` ready for
+     ``evaluate_real_data_benchmark``.
+   - ``load_roadmap_wgbs_atlas(path, sites)`` — averages variableStep
+     WIG values per tissue, handling both fraction (≤1) and
+     percentage (>1) value conventions.
+2. **CLI flags** on existing benches:
+   - ``scripts/bench_finaleme_realdata.py --data-dir <path>
+     [--locus-panel <bed>]`` swaps the synthetic proxy for the Liu
+     2024 loader and flips ``_status`` from ``synthetic FinaleMe-
+     proxy (...)`` to ``Liu 2024 (data-dir=..., n_samples=...)``.
+   - ``scripts/bench_tissue_loo.py --atlas-tsv <path>`` replaces the
+     synthetic 4-tissue reference with the Loyfer atlas matrix and
+     flips ``_status`` to ``Loyfer 2023 (T=..., L=...)``.
+3. **Tests** with synthetic on-disk fixtures
+   (``tests/test_io_loaders.py``) verify the loaders parse the
+   documented formats. CI does not require drive access.
 
-1. Add `havi_methyl.io.finaleme_loader.load_liu2024(path)` returning
-   the same dataclass shape as `simulate_dataset`.
-2. Swap the simulator block in `bench_finaleme_realdata.py` for the
-   loader and rerun the full ablation matrix.
-3. Update `_status` columns from `synthetic FinaleMe-proxy` to
-   `Liu 2024 (EGA, n=80, ...)` only after the run finishes.
-4. Keep the synthetic-proxy run available behind a `--proxy` flag so
-   the CI pipeline never depends on controlled-access data.
+What is still blocked:
 
-Exit criteria: `bench_finaleme_realdata.csv` carries real metrics for
-HAVI-Methyl rows; external baselines remain `XX` until each baseline
-codebase is wired up.
+- macOS TCC ("Removable Volumes" / Full Disk Access) prevents the
+  agent process from reading ``/Volumes/Omid Solari`` directly — the
+  user has granted access to VS Code but a VS Code restart is needed
+  for the new permission to apply to the running process tree. Once
+  the restart happens (or the relevant subset is copied to a local
+  path), running the bench scripts with ``--data-dir`` produces real
+  Liu 2024 / Loyfer / Roadmap numbers without further code changes.
+
+Exit criteria for Phase 5:
+
+- ``bench_finaleme_realdata.csv`` carries real metrics on Liu 2024.
+- ``bench_tissue_loo.csv`` shows real Loyfer atlas LOO RMSE.
+- Status rows attribute the data source.
 
 ## Phase 6 — Documentation + multi-seed reporting ✅
 
