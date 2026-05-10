@@ -1,5 +1,10 @@
 """Regenerate Table~\\ref{tab:datasets} (Sec. 12.1) — public datasets used
-in the benchmarking plan.
+in the planned real-data benchmark.
+
+Schema matches ``docs/report/tables/tab_datasets.csv``: every accession,
+sample count, and modality is flagged ``verify ...`` because external dataset
+verification is one of the open technical questions in
+``docs/report/CODING_AGENT_HANDOFF.md``.
 """
 
 from __future__ import annotations
@@ -14,31 +19,31 @@ def main() -> None:
     rows = [
         {
             "dataset": "Liu et al. 2024 (FinaleMe)",
-            "S": 80,
-            "mean_coverage": "~1x",
+            "scope": "80 planned comparison",
+            "modality_or_coverage": "low-pass WGS/WGBS",
             "paired_WGBS": "yes",
-            "access": "EGA",
+            "verification_status": "verify controlled-access details",
         },
         {
             "dataset": "Sun 2015",
-            "S": 32,
-            "mean_coverage": "~35x WGBS",
+            "scope": "reference/planned",
+            "modality_or_coverage": "WGBS",
             "paired_WGBS": "WGBS-only",
-            "access": "SRA",
+            "verification_status": "verify accession and sample count",
         },
         {
             "dataset": "Moss 2018",
-            "S": 25,
-            "mean_coverage": "methylation array",
+            "scope": "reference/planned",
+            "modality_or_coverage": "methylation array or atlas",
             "paired_WGBS": "N/A",
-            "access": "GEO",
+            "verification_status": "verify ground truth and accession",
         },
         {
             "dataset": "Loyfer 2023",
-            "S": "39 cell types from 205 samples",
-            "mean_coverage": "WGBS atlas",
+            "scope": "atlas-scale reference",
+            "modality_or_coverage": "WGBS atlas",
             "paired_WGBS": "N/A",
-            "access": "GSE186458",
+            "verification_status": "verify accession and tissue labels",
         },
     ]
     out = _common.write_csv("outputs/tables/tab_datasets.csv", rows)

@@ -1,6 +1,5 @@
-axis,simulated,expected,kolmogorov_smirnov_target
-Fragment-length primary mode (bp),167.5,~167,<= 0.04 vs Snyder 2016
-Fragment-length secondary peak height (per bp),0.002858057161143223,~0.005,—
-Fragment-length tertiary peak height (per bp),0.0005280105602112042,~0.0009,—
-Top-4 4-mer fraction at 5' cuts,0.07778,~0.20,KL <= 0.08 vs Zhou 2022
-Median length mod 10.4 bp (~periodicity check),9.016846300110927,—,Periodicity peak at 10.42 ± 0.04
+axis,current_status,expected_output,publication_action
+Fragment-length modes,planning/preliminary,histogram and distance to reference,regenerate from final simulator
+End-motif frequencies,planning/preliminary,top 4-mers and KL/distance,regenerate from final simulator
+Periodicity spectrum,planning/preliminary,autocorrelation peak near helical periodicity,regenerate from final simulator
+Methylation-conditioned cut bias,planning/preliminary,stratified motif/cut-bias effect size,regenerate from final simulator

@@ -1,14 +1,14 @@
 \section{Synthetic Experiments}
 \label{sec:synth}
 
-We use the simulator described in Section~\ref{sec:simulator} and Appendix~\ref{app:sim} to produce $S=12$ synthetic samples across $L=300$ loci at coverages $\{0.1\times,1\times,5\times,30\times\}$, and compare HAVI-Methyl against a FinaleMe-style binary-emission baseline on five axes. The reduced experimental scale, relative to a real-data benchmarking run, is sufficient to demonstrate the qualitative ordering of the methods, and the full simulator and experiment harness are released in the project zip for reproducibility. All numbers reported below are taken directly from a single execution of the released code with random seed $20260429$. The simplified HAVI-Methyl used here uses a Gaussian variational posterior and an empirical-Bayes hierarchical fit on top of the same per-fragment classifier used by the baseline; the full Set Transformer plus normalizing-flow architecture would require substantially longer training runs and is left for the real-data benchmarking phase described in Section~\ref{sec:benchmark}.
+We use the released simplified simulator harness to produce $S=12$ synthetic samples across $L=300$ loci at coverages $\{0.1\times,1\times,5\times,30\times\}$, and compare a simplified HAVI-Methyl variant against a FinaleMe-style binary-emission baseline. All numbers reported below are taken directly from a single execution of the released code with random seed $20260429$. The simplified HAVI-Methyl variant uses a Gaussian posterior and empirical-Bayes hierarchical fit on top of the same per-fragment classifier used by the baseline. The full Set Transformer, normalizing-flow posterior, conformal wrapper, mQTL-anchor integration, and full tissue-of-origin head remain planned for the real-data benchmarking phase described in Section~\ref{sec:benchmark}.
 
 \subsection{Per-CpG \texorpdfstring{$\beta$}{beta} recovery}
-Table~\ref{tab:recovery} reports per-CpG Pearson correlation and root-mean-square error of predicted versus ground-truth $\beta$ across coverages. HAVI-Methyl improves Pearson correlation at every coverage level, with the largest absolute gains in the low-coverage regime ($+0.20$ at $0.1\times$, $+0.30$ at $1\times$) where the hierarchical population prior contributes the most. RMSE drops by 28--30\% at $1\times$ and $5\times$ coverage. Figure~\ref{fig:recovery} shows the per-locus scatter of true versus predicted $\beta$ for both methods at each coverage.
+Table~\ref{tab:recovery} reports per-CpG Pearson correlation and root-mean-square error of predicted versus ground-truth $\beta$ across coverages. The simplified HAVI-Methyl variant improves Pearson correlation at every coverage level, with the largest absolute gains in the low-coverage regime where the hierarchical population prior contributes the most. Figure~\ref{fig:recovery} shows the per-locus scatter of true versus predicted $\beta$ for both methods at each coverage.
 
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
-\caption{Per-CpG $\beta$ recovery: Pearson $r$ (higher better) and RMSE (lower better) on $S=12$ samples and $L=300$ loci. Numbers are produced by the released simulator and experiment harness.}
+\caption{Per-CpG $\beta$ recovery in the released simplified synthetic harness: Pearson $r$ (higher better) and RMSE (lower better) on $S=12$ samples and $L=300$ loci.}
 \label{tab:recovery}
 \begin{tabular}{lcccc cccc}
 \toprule
@@ -16,49 +16,49 @@ Table~\ref{tab:recovery} reports per-CpG Pearson correlation and root-mean-squar
 \cmidrule(lr){2-5}\cmidrule(lr){6-9}
 Method & $0.1\times$ & $1\times$ & $5\times$ & $30\times$ & $0.1\times$ & $1\times$ & $5\times$ & $30\times$\\
 \midrule
-FinaleMe-style HMM & $0.182$ & $0.528$ & $0.779$ & $0.961$ & $0.309$ & $0.309$ & $0.184$ & $0.097$\\
-HAVI-Methyl (ours) & $\mathbf{0.382}$ & $\mathbf{0.829}$ & $\mathbf{0.895}$ & $\mathbf{0.966}$ & $\mathbf{0.296}$ & $\mathbf{0.220}$ & $\mathbf{0.132}$ & $\mathbf{0.096}$\\
+FinaleMe-style HMM & $0.162$ & $0.524$ & $0.768$ & $0.961$ & $0.310$ & $0.312$ & $0.187$ & $0.098$\\
+HAVI-Methyl (simplified) & $\mathbf{0.333}$ & $\mathbf{0.782}$ & $\mathbf{0.868}$ & $\mathbf{0.964}$ & $\mathbf{0.296}$ & $\mathbf{0.227}$ & $\mathbf{0.141}$ & $\mathbf{0.096}$\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[h]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/recovery_scatter.png}
-\caption{Per-locus scatter of true versus predicted $\beta$ at each coverage. The FinaleMe-style HMM baseline is shown in gray, HAVI-Methyl in Cerebras orange. Both methods converge on the diagonal as coverage increases, but HAVI-Methyl reaches the diagonal substantially earlier in the coverage budget.}
+\caption{Per-locus scatter of true versus predicted $\beta$ at each coverage in the simplified synthetic harness. Both methods approach the diagonal as coverage increases; the simplified HAVI-Methyl variant benefits more at low coverage.}
 \label{fig:recovery}
 \end{figure}
 
-\subsection{CpG-poor region recovery}
-We define CpG-poor loci as those in the bottom 30\% of local methylation variability, computed as the standard deviation of the population $\beta$ track in a $\pm 5$-locus window. On this subset, the FinaleMe-style baseline achieves Pearson correlations of $0.224$, $0.588$, $0.833$, and $0.978$ across the four coverages, while HAVI-Methyl achieves $0.450$, $0.870$, $0.927$, and $0.981$. The largest gaps appear at $1\times$ and $5\times$ coverage, where amortized inference shares strength across loci through the encoder rather than through chromosomal neighbors that are themselves uninformative.
+\subsection{Low-information locus recovery}
+The current code uses the bottom 30\% of local methylation variability, computed as the standard deviation of the population $\beta$ track in a $\pm 5$-locus window, as a synthetic proxy for low-information or CpG-poor behavior. On this subset, the FinaleMe-style baseline achieves Pearson correlations of $0.224$, $0.588$, $0.833$, and $0.978$ across the four coverages, while the simplified HAVI-Methyl variant achieves $0.398$, $0.828$, $0.906$, and $0.980$. This proxy should be replaced by an explicit CpG-density or genomic-context stratification in the real-data benchmark.
 
 \subsection{Calibration}
-At nominal $90\%$ posterior credible intervals, HAVI-Methyl achieves empirical coverage of $0.366$, $0.449$, $0.646$, and $0.403$ at the four coverages on the full locus set, with mean interval widths of $0.499$, $0.499$, $0.259$, and $0.126$. The intervals are narrower than those of the bootstrap baseline ($0.865$, $0.431$, $0.342$, $0.166$ at the same coverages) at $5\times$ and above, while the empirical coverage rate undershoots the nominal rate; this shortfall is expected for the simplified Gaussian-posterior variant used here, and the conformal wrapper of Section~\ref{sec:calibration} is the recommended remedy at evaluation time. Figure~\ref{fig:calibration} shows the calibration curve at $5\times$ coverage. We emphasize that empirical-Bayes Gaussian intervals are not the calibration mechanism HAVI-Methyl is intended to deploy; the production pipeline uses the normalizing-flow posterior plus the conformal wrapper of Proposition~\ref{prop:conformal}, which provides a finite-sample marginal coverage guarantee that the simplified variant in this experiment does not.
+At nominal $90\%$ posterior credible intervals, the simplified HAVI-Methyl variant achieves empirical coverage of $0.471$, $0.597$, $0.671$, and $0.415$ at the four coverages on the full locus set, with mean interval widths of $0.512$, $0.442$, $0.280$, and $0.128$. The empirical coverage undershoots the nominal rate, especially at low and high coverage, which is expected for the simplified Gaussian-posterior variant. The conformal wrapper of Section~\ref{sec:calibration} is the intended calibration mechanism for production evaluation; these raw intervals should not be treated as demonstrated conformal calibration.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.55\textwidth]{figures/calibration.png}
-\caption{Calibration curve at $5\times$ coverage. The dashed black line is ideal coverage; the orange curve is HAVI-Methyl empirical coverage at the corresponding nominal level under the released simplified-Gaussian variant. Production deployment uses the normalizing-flow posterior plus a split-conformal wrapper, which restores the marginal coverage guarantee of Proposition~\ref{prop:conformal}.}
+\caption{Calibration curve at $5\times$ coverage under the released simplified-Gaussian variant. The dashed line is ideal coverage. Production evaluation should use the normalizing-flow posterior plus a split-conformal wrapper.}
 \label{fig:calibration}
 \end{figure}
 
 \subsection{Identifiability stress test}
-We synthesize a buffy-coat prior input correlated with disease status, by adding a $0.25$ shift on the $\beta$-scale at $25\%$ of loci for half of the $12$ samples, and ask: how much of the predicted DMR signal is attributable to the prior input as opposed to the genuine fragmentomic features? We measure prior attribution as the partial $R^2$ of the prior input in a regression of the predicted $\beta$ onto the joint of (prior, ground truth). Without VIB regularization the prior accounts for $3.32\%$ of the predicted signal; adding VIB regularization at $\beta_{\mathrm{VIB}}=0.3$ reduces this to $0.36\%$; adding mQTL anchors on top reduces it further to $0.022\%$. The two-decade reduction over the unregularized variant is consistent with Proposition~\ref{prop:identify} and Proposition~\ref{prop:vib}.
+We synthesize a buffy-coat prior input correlated with disease status by adding a $0.25$ shift on the $\beta$ scale at $25\%$ of loci for half of the $12$ samples. We measure prior attribution as the partial $R^2$ of the prior input in a regression of predicted $\beta$ onto the joint of prior input and ground truth. Without VIB regularization the prior accounts for $5.93\%$ of the predicted signal; adding VIB regularization at $\beta_{\mathrm{VIB}}=0.3$ reduces this to $0.62\%$; adding mQTL anchors on top reduces it further to $0.037\%$. These synthetic reductions are consistent with the intended leakage-control mechanisms, but they are not a proof of real-data identifiability.
 
 \subsection{Tissue-fraction recovery}
-Across mixtures of three synthetic tissues, HAVI-Methyl achieves tissue-fraction RMSE of $0.009$ versus $0.153$ for a FinaleMe-derived binarize-and-deconvolve baseline. The 17-fold improvement reflects the cost of binarization in the baseline pipeline: thresholding the per-CpG predictions before deconvolving discards a large fraction of the signal, especially for tissues whose reference profiles differ in graded rather than binary methylation patterns.
+Across mixtures of three synthetic tissues, the simplified continuous deconvolution proxy achieves tissue-fraction RMSE of $0.007$ versus $0.129$ for a FinaleMe-derived binarize-and-deconvolve baseline. The result illustrates the cost of binarization in a synthetic setting. It should not be read as a completed evaluation of the full Dirichlet or HDP tissue-of-origin head in Section~\ref{sec:too}.
 
-\subsection{ELBO trajectory}
-Figure~\ref{fig:elbo} shows the ELBO-per-pair trajectory for the simplified HAVI-Methyl during one of the runs. The ELBO ascends monotonically once the empirical-Bayes hierarchical update has converged, consistent with Proposition~\ref{prop:svi}.
+\subsection{Surrogate objective trajectory}
+Figure~\ref{fig:elbo} shows the surrogate objective trajectory for the simplified variant during one run. The plotted quantity is a negative-SSE-style proxy used by the harness, not the exact full-model ELBO. Its decrease is compatible with stable optimization but does not by itself verify Proposition~\ref{prop:svi} for the full flow-based model.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.55\textwidth]{figures/elbo_trajectory.png}
-\caption{ELBO trajectory at $30\times$ coverage during synthetic training. The negative-SSE proxy used as the ELBO surrogate decreases with iteration, consistent with the convergence proof of Proposition~\ref{prop:svi}.}
+\caption{Surrogate objective trajectory at $30\times$ coverage during synthetic training. The negative-SSE proxy decreases with iteration in the simplified harness; the full-model ELBO should be tracked separately in the planned implementation.}
 \label{fig:elbo}
 \end{figure}
 
 \subsection{Caveats and ablation pointer}
-The synthetic-experiment numbers reported above are subject to two important caveats. First, the experimental scale ($S=12$, $L=300$) is below what is needed to deliver tight bootstrap confidence intervals on each metric; we therefore report point estimates and refer the reader to the released code for replication under different seeds. Second, the simplified HAVI-Methyl uses a Gaussian posterior and an empirical-Bayes hierarchical fit, which is a strict subset of the full architecture. Full ablations of the components individually—the Set Transformer encoder, the normalizing-flow posterior, the IWAE bound, the VIB penalty, the mQTL anchors, and the conformal wrapper—are deferred to the real-data benchmarking phase of Section~\ref{sec:benchmark}, where compute scale permits the full architecture to be trained. Appendix~\ref{app:extres} reports an extended synthetic ablation table once the corresponding experiments are completed.
+The synthetic-experiment numbers are single-seed point estimates at reduced scale, not final benchmark statistics. Multi-seed repeats, bootstrap intervals, and full ablations of the Set Transformer encoder, normalizing-flow posterior, IWAE objective, VIB penalty, mQTL anchors, conformal wrapper, and tissue head are planned for Section~\ref{sec:benchmark}. Appendix~\ref{app:extres} reports extended metrics from the same released run and records sensitivity analyses that should be regenerated before publication if they are to be treated as completed measurements.
 
 % ============================================================

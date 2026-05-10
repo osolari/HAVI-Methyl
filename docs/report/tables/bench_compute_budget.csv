@@ -1,9 +1,14 @@
-item,value
-ISAB FLOPs per step,2.147e+10
-Flow forward FLOPs per step,6.442e+09
-Total FLOPs per step,2.792e+10
-Sustained throughput (TFLOPs/s),100.0
-Steps per second,3582
-"Steps per epoch (L=30M, |B_l|=4096)",7324
-Wall time per epoch (s),2
-Wall time per epoch (min),0.0
+item,value,status
+Trainable neural parameters (planned full model),~1.0M,planning estimate
+Variational parameters,data-scale (2L + 2S),planning estimate
+Batch samples |B_s|,8,planning default
+Batch loci |B_l|,4096,planning default
+Mean fragments per locus,20,planning assumption
+ISAB FLOPs / step (analytical),2.147e+10,analytical from constants
+Flow FLOPs / step (analytical),6.442e+09,analytical from constants
+Total FLOPs / step (analytical),2.792e+10,analytical from constants
+Sustained throughput target (100.0 TFLOPs/s),3582 steps/s,planning estimate; verify on target hardware
+Wall time per epoch (planned 30M loci),2.0 s,planning estimate; verify on target hardware
+"Measured fit_svi_simplified seconds (S=12, L=4096, iter=20)",0.0042,measured on Darwin arm64 arm
+Measured fit_svi_simplified iters/sec,4766.77,measured on Darwin arm64 arm
+Measured final surrogate ELBO/pair,-3.829950,measured on Darwin arm64 arm

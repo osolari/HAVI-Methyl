@@ -70,6 +70,135 @@ class RationalQuadraticSpline:
         return y, log_jac
 
 
+# ---------- Conditional rational-quadratic spline (App. C, IMPL-04) ----------
+
+
+@dataclass
+class ConditionalRationalQuadraticSpline:
+    """Rational-quadratic spline whose knots/derivatives come from a context.
+
+    The block consumes a context vector ``c \\in R^{d_c}`` and predicts
+    ``(x_knots, y_knots, derivatives)`` via a small affine head plus a
+    softmax/cumsum normalisation that keeps knots monotone within ``[-B, B]``.
+    Boundary derivatives are pinned to 1.0 for tail-linearity (App. C).
+
+    The numpy reference here matches the torch ``ConditionalNSFBlock`` below
+    and is exact enough for finite-difference gradient checks.
+    """
+
+    W_x: NDArray[np.float64]
+    W_y: NDArray[np.float64]
+    W_d: NDArray[np.float64]
+    b_x: NDArray[np.float64]
+    b_y: NDArray[np.float64]
+    b_d: NDArray[np.float64]
+    num_bins: int
+    B: float
+
+    @classmethod
+    def random(
+        cls,
+        context_dim: int,
+        num_bins: int = 8,
+        B: float = 3.0,
+        rng: int | np.random.Generator | None = None,
+    ) -> ConditionalRationalQuadraticSpline:
+        from havi_methyl.utils import get_rng
+
+        gen = get_rng(rng)
+        scale = 1.0 / np.sqrt(context_dim)
+        return cls(
+            W_x=gen.standard_normal((context_dim, num_bins)) * scale,
+            W_y=gen.standard_normal((context_dim, num_bins)) * scale,
+            W_d=gen.standard_normal((context_dim, num_bins - 1)) * scale,
+            b_x=np.zeros(num_bins),
+            b_y=np.zeros(num_bins),
+            b_d=np.zeros(num_bins - 1),
+            num_bins=num_bins,
+            B=B,
+        )
+
+    def parameters_for(
+        self, context: NDArray[np.float64]
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+        c = np.asarray(context, dtype=np.float64)
+        x_logits = c @ self.W_x + self.b_x
+        y_logits = c @ self.W_y + self.b_y
+        d_logits = c @ self.W_d + self.b_d
+        x_soft = np.exp(x_logits - x_logits.max())
+        x_soft = x_soft / x_soft.sum()
+        y_soft = np.exp(y_logits - y_logits.max())
+        y_soft = y_soft / y_soft.sum()
+        x_knots = self.B * (2 * np.cumsum(x_soft) - 1)
+        y_knots = self.B * (2 * np.cumsum(y_soft) - 1)
+        # Prepend the lower boundary so we get K+1 knots within [-B, B].
+        x_knots = np.concatenate([[-self.B], x_knots])
+        y_knots = np.concatenate([[-self.B], y_knots])
+        # Derivatives via softplus, with boundaries fixed to 1.0.
+        d_inner = np.log1p(np.exp(-np.abs(d_logits))) + np.maximum(d_logits, 0) + 1e-3
+        d = np.concatenate([[1.0], d_inner, [1.0]])
+        return x_knots, y_knots, d
+
+    def transform(
+        self, x: ArrayLike, context: ArrayLike
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        x = np.asarray(x, dtype=np.float64)
+        x_knots, y_knots, d = self.parameters_for(np.asarray(context, dtype=np.float64))
+        spline = RationalQuadraticSpline(x_knots=x_knots, y_knots=y_knots, derivatives=d)
+        x_clamped = np.clip(x, -self.B + 1e-6, self.B - 1e-6)
+        y, log_jac = spline.transform(x_clamped)
+        # Tail-linear: outside the support, identity transform.
+        y = np.where(np.abs(x) < self.B, y, x)
+        log_jac = np.where(np.abs(x) < self.B, log_jac, 0.0)
+        return y, log_jac
+
+    def inverse(
+        self,
+        y: ArrayLike,
+        context: ArrayLike,
+        n_iter: int = 60,
+        tol: float = 1e-9,
+    ) -> NDArray[np.float64]:
+        """Find x such that ``T(x; c) = y`` via bracketed bisection.
+
+        The conditional spline is monotone, so bisection converges. Returned
+        ``x`` matches ``y`` to ``tol`` in absolute value within the support.
+        """
+        y = np.asarray(y, dtype=np.float64)
+        ctx = np.asarray(context, dtype=np.float64)
+        lo = np.full_like(y, -self.B + 1e-6)
+        hi = np.full_like(y, self.B - 1e-6)
+        for _ in range(n_iter):
+            mid = 0.5 * (lo + hi)
+            y_mid, _ = self.transform(mid, ctx)
+            mask = y_mid < y
+            lo = np.where(mask, mid, lo)
+            hi = np.where(mask, hi, mid)
+            if np.all(hi - lo < tol):
+                break
+        return 0.5 * (lo + hi)
+
+
+def conditional_log_density(
+    block: ConditionalRationalQuadraticSpline,
+    eta: ArrayLike,
+    context: ArrayLike,
+) -> NDArray[np.float64]:
+    """``log q_phi(eta | c) = log N(T^{-1}(eta); 0, 1) - log|dT/d eps|``.
+
+    Implements eq.~\\ref{eq:flow-density} for the conditional block. ``eta``
+    is the *output* of the flow; we invert via the bisection above and use
+    the change-of-variables identity.
+    """
+    from havi_methyl.distributions import gaussian_log_pdf
+
+    eta_arr = np.asarray(eta, dtype=np.float64)
+    ctx = np.asarray(context, dtype=np.float64)
+    epsilon = block.inverse(eta_arr, ctx)
+    _, log_jac = block.transform(epsilon, ctx)
+    return gaussian_log_pdf(epsilon, 0.0, 1.0) - log_jac
+
+
 # ---------- Composed flow ----------
 
 

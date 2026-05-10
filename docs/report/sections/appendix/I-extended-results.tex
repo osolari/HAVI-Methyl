@@ -1,63 +1,63 @@
 \section{Extended results}
 \label{app:extres}
 
-This appendix collects extended synthetic-experiment numbers, sensitivity analysis, and ablation tables that complement the main text. All numbers are produced from the released code at random seed $20260429$ unless otherwise stated.
+This appendix collects extended synthetic-experiment metrics from the released simplified harness at random seed $20260429$, except where explicitly labeled as planned regeneration. These results complement the main text but are still single-seed synthetic point estimates.
 
 \subsection*{Per-coverage detail}
-\begin{table}[h]
+\begin{table}[htbp]
 \centering\small
-\caption{Extended synthetic recovery results. Pearson $r$, RMSE, MAE, and 90\%-credible-interval coverage and width across coverage levels.}
+\caption{Extended simplified-harness synthetic recovery results. Pearson $r$, RMSE, MAE, raw 90\%-interval coverage and width, and low-information-proxy $r$ across coverage levels.}
 \label{tab:ext-recovery}
 \begin{tabular}{llcccccc}
 \toprule
-Coverage & Method & Pearson $r$ & RMSE & MAE & 90\% cov & 90\% width & CpG-poor $r$ \\
+Coverage & Method & Pearson $r$ & RMSE & MAE & 90\% cov & 90\% width & Low-info $r$ \\
 \midrule
-$0.1\times$ & FinaleMe-style & $0.182$ & $0.309$ & $0.270$ & $0.873$ & $0.865$ & $0.224$ \\
-$0.1\times$ & HAVI-Methyl & $0.382$ & $0.296$ & $0.263$ & $0.366$ & $0.422$ & $0.450$ \\
-$1\times$ & FinaleMe-style & $0.528$ & $0.309$ & $0.248$ & $0.487$ & $0.431$ & $0.588$ \\
-$1\times$ & HAVI-Methyl & $0.829$ & $0.220$ & $0.194$ & $0.449$ & $0.371$ & $0.870$ \\
-$5\times$ & FinaleMe-style & $0.779$ & $0.184$ & $0.141$ & $0.658$ & $0.362$ & $0.833$ \\
-$5\times$ & HAVI-Methyl & $0.895$ & $0.132$ & $0.107$ & $0.646$ & $0.259$ & $0.927$ \\
-$30\times$ & FinaleMe-style & $0.961$ & $0.097$ & $0.081$ & $0.554$ & $0.183$ & $0.978$ \\
-$30\times$ & HAVI-Methyl & $0.966$ & $0.096$ & $0.081$ & $0.403$ & $0.126$ & $0.981$ \\
+$0.1\times$ & FinaleMe-style & $0.162$ & $0.310$ & $0.271$ & $0.796$ & $0.819$ & $0.224$ \\
+$0.1\times$ & HAVI-Methyl simplified & $0.333$ & $0.296$ & $0.262$ & $0.471$ & $0.512$ & $0.398$ \\
+$1\times$ & FinaleMe-style & $0.524$ & $0.312$ & $0.250$ & $0.448$ & $0.412$ & $0.588$ \\
+$1\times$ & HAVI-Methyl simplified & $0.782$ & $0.227$ & $0.196$ & $0.597$ & $0.442$ & $0.828$ \\
+$5\times$ & FinaleMe-style & $0.768$ & $0.187$ & $0.143$ & $0.657$ & $0.361$ & $0.833$ \\
+$5\times$ & HAVI-Methyl simplified & $0.868$ & $0.141$ & $0.113$ & $0.671$ & $0.280$ & $0.906$ \\
+$30\times$ & FinaleMe-style & $0.961$ & $0.098$ & $0.082$ & $0.554$ & $0.183$ & $0.978$ \\
+$30\times$ & HAVI-Methyl simplified & $0.964$ & $0.096$ & $0.081$ & $0.415$ & $0.128$ & $0.980$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection*{Identifiability ablation}
-\begin{table}[h]
+\begin{table}[htbp]
 \centering\small
-\caption{Prior-leakage attribution under three regularization regimes. Lower is better.}
+\caption{Synthetic prior-leakage attribution under three regularization regimes. Lower is better.}
 \label{tab:ext-ident}
 \begin{tabular}{lc}
 \toprule
 Configuration & Partial $R^2$ of prior input \\
 \midrule
-No regularization (VIB off, mQTL off) & $3.32\%$ \\
-VIB only ($\beta_{\mathrm{VIB}}=0.3$) & $0.36\%$ \\
-VIB + mQTL anchors & $0.022\%$ \\
+No regularization (VIB off, mQTL off) & $5.93\%$ \\
+VIB only ($\beta_{\mathrm{VIB}}=0.3$) & $0.62\%$ \\
+VIB + mQTL anchors & $0.037\%$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The two-decade reduction across the three regimes is consistent with Proposition~\ref{prop:identify-restated} (positive identification under IV anchors) and Proposition~\ref{prop:vib} with Corollary~\ref{cor:vib-finite} (asymptotic VIB leakage bound with finite-$\beta_{\mathrm{VIB}}$ refinement).
+The reduction across regimes is consistent with the intended leakage-control mechanism. It is not a replacement for real-data IV diagnostics or subgroup leakage checks.
 
 \subsection*{Tissue-fraction recovery}
-\begin{table}[h]
+\begin{table}[htbp]
 \centering\small
-\caption{Tissue-fraction RMSE on synthetic three-tissue mixtures. Lower is better.}
+\caption{Synthetic three-tissue continuous-deconvolution proxy. Lower is better.}
 \label{tab:ext-tissue}
 \begin{tabular}{lc}
 \toprule
 Method & Tissue-fraction RMSE \\
 \midrule
-FinaleMe-binarized + QP deconvolution & $0.153$ \\
-HAVI-Methyl joint Dirichlet head & $0.009$ \\
+FinaleMe-binarized + QP deconvolution & $0.129$ \\
+HAVI-Methyl simplified continuous proxy & $0.007$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The 17-fold improvement reflects (i) the cost of binarization in the baseline pipeline (continuous-$\beta$ inputs preserve graded methylation patterns), (ii) end-to-end joint training of the deconvolution head against the methylation likelihood, and (iii) propagation of per-CpG posterior uncertainty into the tissue-fraction posterior via the integrated likelihood form of Section~\ref{sec:too}.
+The result illustrates the cost of binarization in the simplified synthetic setting. It should not be cited as a completed full Dirichlet-head evaluation.
 
-\subsection*{Sensitivity analysis}
-We swept the three model hyperparameters $(\kappa,\sigma_\eta,\sigma_\delta)$ at $5\times$ coverage to characterize sensitivity. Pearson $r$ varies by less than $\pm 0.02$ across the range $\kappa\in[10,40]$, $\sigma_\eta\in[0.5,1.2]$, $\sigma_\delta\in[0.2,1.0]$, indicating the model is not finely tuned to the default settings. The largest sensitivity is to $\kappa$ (Beta-Binomial concentration) at very low coverage ($0.1\times$), where small $\kappa$ produces overdispersed predictions that worsen RMSE; the default $\kappa=20$ is comfortably in the well-performing region.
+\subsection*{Sensitivity analysis status}
+Sensitivity sweeps over $(\kappa,\sigma_\eta,\sigma_\delta)$ are planned for regeneration. The final version should store sweep outputs in JSON/CSV, report multi-seed uncertainty, and synchronize any manuscript table with those artifacts before treating the sensitivity claims as completed.

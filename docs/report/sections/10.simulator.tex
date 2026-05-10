@@ -1,17 +1,17 @@
 \section{cfDNA Fragmentation Simulator}
 \label{sec:simulator}
 
-We introduce a chromatin-aware cfDNA simulator that produces paired ground-truth methylation and WGS fragments. The pipeline is: chromatin state $\to$ nucleosome positioning $\to$ MNase-like fragmentation $\to$ end repair / adapter ligation $\to$ sequencing. The simulator takes a per-CpG ground-truth methylation track $\beta\in[0,1]^L$ as input, drawn from a public reference atlas (Loyfer-2023 in our setup \citealp{loyfer2023}), together with a chromatin-state annotation and a reference genome assembly (hg38). It outputs a bag of fragments per locus together with their per-fragment features and a per-CpG ground-truth methylation indicator.
+We specify a chromatin-aware cfDNA simulator intended to produce paired ground-truth methylation and WGS-style fragments. The conceptual pipeline is chromatin state $\to$ nucleosome positioning $\to$ MNase-like fragmentation $\to$ end repair / adapter ligation $\to$ sequencing. The full simulator specification takes a per-CpG ground-truth methylation track $\beta\in[0,1]^L$, a chromatin-state annotation, and a reference genome assembly as inputs, and outputs fragment bags, coverage, motifs, and per-CpG ground truth. The released code currently implements a simplified synthetic harness that captures the same high-level dependencies but not every full-specification component in Appendix~\ref{app:sim}.
 
-\begin{lstlisting}[style=py,caption={cfDNA fragmentation simulator (algorithmic skeleton). Full specification in Appendix~\ref{app:sim}.}]
+\begin{lstlisting}[style=py,caption={cfDNA fragmentation simulator (algorithmic skeleton). Full specification in Appendix~\ref{app:sim}; released code implements a simplified harness for the current synthetic experiments.}]
 def simulate_cfDNA(genome, chromatin, methylation, n_frag, params):
     fragments = []
-    # 1. Sample nucleosome positions from a stationary point process
+    # 1. Sample nucleosome positions from a point process
     nucs = sample_nucleosomes(chromatin, params.spacing_mean, params.spacing_sd)
     for _ in range(n_frag):
         # 2. Pick a fragmentation site biased toward linker DNA
         cut1 = sample_cut(nucs, params.linker_bias, params.periodicity_104)
-        # 3. Sample fragment length from a mixture of mono/di/tri-nucleosomal Gaussians
+        # 3. Sample fragment length from mono/di/tri-nucleosomal mixture
         L = sample_length_mixture(params.mu_lengths, params.sigma_lengths, params.weights)
         cut2 = cut1 + L
         # 4. End-motif sampling from sequence- and methylation-conditioned categorical
@@ -26,8 +26,8 @@ def simulate_cfDNA(genome, chromatin, methylation, n_frag, params):
     return fragments, coverage
 \end{lstlisting}
 
-Parameters are drawn from \citet{snyder2016} (length distribution: mode 167~bp, secondary mode at 332~bp, $10.4$~bp periodicity), \citet{zhou2022} (end-motif logits trained on plasma data), and \citet{loyfer2023} (methylation atlases for ground truth $\beta$). The full algorithmic specification, with each helper function defined explicitly together with its parameter table and literature source, is in Appendix~\ref{app:sim}.
+Parameters are proposed from the cited cfDNA-fragmentomics literature and should be re-estimated or re-verified before final publication. The full algorithmic specification, with helper functions and a parameter table, appears in Appendix~\ref{app:sim}. The simplified harness fixes the random seed and emits the JSON/figure artifacts used in Section~\ref{sec:synth}.
 
-\paragraph{Validation.} The simulator is validated against published cfDNA distributions on three axes. First, the simulated fragment-length distribution should reproduce the canonical mononucleosomal mode at $167$~bp and secondary modes at $332$~bp and $\sim 500$~bp \citep{snyder2016}. Second, the simulated end-motif frequencies at the 5' end should match published plasma WGS distributions, with the four most abundant 4-mers (CCCA, CCAG, CCTG, CCAA) accounting for approximately $20\%$ of cuts in healthy plasma \citep{zhou2022}. Third, the autocorrelation of cut sites should exhibit the canonical $10.4$~bp periodicity peak. Validation plots and quantitative comparisons are reported in Appendix~\ref{app:simvalidation}.
+\paragraph{Validation.} The validation targets are: (i) fragment-length modes near mononucleosomal and multinucleosomal peaks; (ii) end-motif frequencies at the 5' and 3' ends; (iii) cut-site periodicity near the helical pitch of DNA; and (iv) methylation-conditioned cut bias. Some validation values are present as sidecar planning artifacts, but the final benchmark should regenerate validation plots and numeric comparisons from code before treating them as publication-ready measured results. Appendix~\ref{app:simvalidation} records the current status and intended diagnostics.
 
 % ============================================================

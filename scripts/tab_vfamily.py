@@ -1,9 +1,10 @@
-"""Regenerate Table~\\ref{tab:vfamily} (Sec. 4.6) — variational family
-trade-offs across the per-(sample, locus) layer.
+"""Regenerate Table~\\ref{tab:vfamily} (Sec. 4.6) — variational family /
+objective trade-offs across the per-(sample, locus) layer.
 
-This is a *protocol* table: each row documents an architectural choice and its
-qualitative trade-offs as stated in the manuscript. We emit it as CSV so the
-LaTeX build can re-render it from a single source of truth.
+Schema matches ``docs/report/tables/tab_vfamily.csv``: ``status`` flags which
+choice is exercised by the released simplified harness vs. the planned full
+model. IWAE is labelled as an objective tightening, not a separate family,
+matching the corrected manuscript wording.
 """
 
 from __future__ import annotations
@@ -17,28 +18,32 @@ def main() -> None:
 
     rows = [
         {
-            "family": "Mean-field Gaussian (logit scale)",
-            "expressiveness": "low (unimodal)",
+            "family_or_objective": "Mean-field Gaussian (logit scale)",
+            "expressiveness": "low",
             "cost_per_step": "low",
-            "gradient_variance": "low",
+            "gradient_behavior": "low variance",
+            "status": "implemented in simplified harness",
         },
         {
-            "family": "Mean-field Beta",
-            "expressiveness": "low (unimodal)",
+            "family_or_objective": "Mean-field Beta",
+            "expressiveness": "low",
             "cost_per_step": "low",
-            "gradient_variance": "moderate (Beta reparam)",
+            "gradient_behavior": "moderate",
+            "status": "planned ablation",
         },
         {
-            "family": "Normalizing flow (NSF, K blocks)",
-            "expressiveness": "high (multi-modal)",
-            "cost_per_step": "moderate (O(K))",
-            "gradient_variance": "low (pathwise)",
+            "family_or_objective": "Conditional scalar NSF flow",
+            "expressiveness": "moderate-high",
+            "cost_per_step": "moderate",
+            "gradient_behavior": "pathwise gradients",
+            "status": "planned full model",
         },
         {
-            "family": "IWAE-tightened flow (K samples)",
-            "expressiveness": "high",
-            "cost_per_step": "high (Kx)",
-            "gradient_variance": "moderate (DReG; Tucker 2019)",
+            "family_or_objective": "IWAE-tightened flow objective",
+            "expressiveness": "tighter bound",
+            "cost_per_step": "high",
+            "gradient_behavior": "DReG recommended",
+            "status": "planned training objective",
         },
     ]
     out = _common.write_csv("outputs/tables/tab_vfamily.csv", rows)

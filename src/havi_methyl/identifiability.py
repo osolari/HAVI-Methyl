@@ -109,6 +109,73 @@ def prior_attribution_partial_r2(
     return max(0.0, r2_full - r2_true) / max(r2_full, 1e-6)
 
 
+def domain_adversarial_loss(
+    representations: NDArray[np.float64],
+    domain_labels: NDArray[np.intp],
+    lam: float = 1.0,
+) -> float:
+    """Gradient-reversal-style domain-adversarial penalty (Sec. 7.4).
+
+    The closed-form domain logistic regression's negative log-likelihood is
+    used as the head loss; with gradient reversal during full training the
+    encoder maximises this loss while the head minimises it. For numpy
+    diagnostics we report ``-NLL`` so a *higher* value means the encoder is
+    domain-invariant. Returns ``lam * NLL`` (i.e. the head's penalty).
+
+    Implementation: fit a logistic regression on ``representations``
+    predicting ``domain_labels`` via Newton-IRLS (closed form for K classes
+    via Fisher scoring on the log-odds). Reports the cross-entropy of the fit.
+    """
+    X = np.asarray(representations, dtype=np.float64)
+    y = np.asarray(domain_labels, dtype=np.intp)
+    if X.ndim == 1:
+        X = X[:, None]
+    n, d = X.shape
+    K = int(y.max()) + 1
+    # Design with bias.
+    Xb = np.hstack([np.ones((n, 1)), X])
+    # IRLS with ridge for K-way softmax regression.
+    W = np.zeros((d + 1, K))
+    for _ in range(15):
+        logits = Xb @ W
+        probs = np.exp(logits - logits.max(axis=1, keepdims=True))
+        probs = probs / probs.sum(axis=1, keepdims=True)
+        Y = np.eye(K)[y]
+        grad = Xb.T @ (probs - Y) + 1e-3 * W
+        # Diagonal Hessian approximation per-class (Fisher block).
+        # Use damped gradient step to keep numpy code simple and stable.
+        W -= 0.1 * grad
+    nll = -float(np.log(np.clip(probs[np.arange(n), y], 1e-12, 1.0)).mean())
+    return float(lam * nll)
+
+
+def cohort_balance_diagnostic(
+    representations: NDArray[np.float64],
+    cohort_labels: NDArray[np.intp],
+    threshold: float = 0.7,
+) -> dict[str, float]:
+    """Maximum-mean-discrepancy-style balance diagnostic across cohorts.
+
+    Reports the across-cohort Frobenius gap between cohort-mean
+    representations and a chance baseline; values below ``threshold`` are
+    considered balanced. This is the diagnostic referenced in Sec. 7.4 and
+    the IMPL-06 completion criterion.
+    """
+    X = np.asarray(representations, dtype=np.float64)
+    if X.ndim == 1:
+        X = X[:, None]
+    labels = np.asarray(cohort_labels, dtype=np.intp)
+    cohorts = np.unique(labels)
+    means = np.stack([X[labels == c].mean(axis=0) for c in cohorts], axis=0)
+    overall = X.mean(axis=0)
+    gap = float(np.linalg.norm(means - overall) / np.sqrt(len(cohorts)))
+    return {
+        "balance_gap": gap,
+        "passes_threshold": float(gap <= threshold),
+        "n_cohorts": float(len(cohorts)),
+    }
+
+
 @dataclass
 class IdentifiabilityResults:
     """Bundle of leakage diagnostics across regularization regimes."""

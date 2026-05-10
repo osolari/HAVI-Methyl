@@ -142,6 +142,49 @@ class ConformalRiskController:
         return float(thresholds.max())
 
 
+def high_density_conformal_set(
+    grid_log_densities: NDArray[np.float64],
+    log_density_calib: NDArray[np.float64],
+    alpha: float,
+) -> NDArray[np.bool_]:
+    """High-density conformal set on a fixed evaluation grid (Sec. 8.3).
+
+    For each test instance we are given the log-density of the predictive
+    flow at every grid point in ``grid_log_densities`` (shape ``(N_test,
+    N_grid)``). The calibration nonconformity is ``r_i = -log f_i(beta_i)``;
+    the conformal threshold ``q_hat`` defines the set
+    ``{ beta : -log f_new(beta) <= q_hat }``. Returns a boolean mask with
+    shape ``(N_test, N_grid)`` indicating whether each grid point belongs to
+    the prediction set.
+    """
+    r_calib = -np.asarray(log_density_calib, dtype=np.float64)
+    q_hat = split_conformal_threshold(r_calib, alpha)
+    return -np.asarray(grid_log_densities, dtype=np.float64) <= q_hat
+
+
+def worst_stratum_coverage(
+    true: NDArray[np.float64],
+    lo: NDArray[np.float64],
+    hi: NDArray[np.float64],
+    strata: NDArray[np.intp],
+) -> dict[int, float]:
+    """Per-stratum coverage; the *worst* value is the headline diagnostic.
+
+    Sec. 8.4 / Sec. 12.2: marginal coverage can be on-target while the worst
+    stratum is well below nominal. This helper returns a dict mapping each
+    unique stratum id to its empirical coverage, plus a ``worst`` key.
+    """
+    s = np.asarray(strata, dtype=np.intp)
+    out: dict[int, float] = {}
+    for stratum in np.unique(s):
+        mask = s == stratum
+        cov = float(((true[mask] >= lo[mask]) & (true[mask] <= hi[mask])).mean())
+        out[int(stratum)] = cov
+    if out:
+        out["worst"] = float(min(out.values()))
+    return out
+
+
 def coverage_curve(
     true: NDArray[np.float64],
     centers: NDArray[np.float64],

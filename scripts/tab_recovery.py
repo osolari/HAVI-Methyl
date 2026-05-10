@@ -1,12 +1,18 @@
-"""Regenerate Table~\\ref{tab:recovery} (Sec. 11.1) — Pearson r and RMSE
-of HAVI-Methyl vs. FinaleMe-style HMM across coverages.
+"""Regenerate Table~\\ref{tab:recovery} (Sec. 11.1) from the canonical
+``outputs/results.json`` artifact.
+
+Reads the JSON produced by ``scripts/bench_synth_recovery.py`` so the table is
+guaranteed consistent with the rest of Sec. 11.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import _common  # type: ignore
-import havi_methyl as hm
-import numpy as np
+
+RESULTS_PATH = Path("outputs/results.json")
 
 
 def main() -> None:
@@ -14,36 +20,35 @@ def main() -> None:
     parser.add_argument("--coverages", type=float, nargs="+", default=[0.1, 1.0, 5.0, 30.0])
     args = parser.parse_args()
 
-    S, L = _common.small_or_full(args.fast, full=(12, 300), fast_values=(4, 80))
-    n_iter = _common.small_or_full(args.fast, full=(10,), fast_values=(3,))[0]
-    rng = np.random.default_rng(args.seed)
+    if not RESULTS_PATH.exists():
+        raise SystemExit(f"{RESULTS_PATH} not found; run scripts/bench_synth_recovery.py first.")
+    results = json.loads(RESULTS_PATH.read_text())
 
     rows = []
     for cov in args.coverages:
-        result, _ = hm.run_one_coverage(S, L, cov, rng=rng, n_iter=n_iter)
+        block = results[f"cov_{cov}"]
         rows.append(
             {
                 "coverage": cov,
                 "method": "FinaleMe-style HMM",
-                "pearson": result.baseline["pearson"],
-                "rmse": result.baseline["rmse"],
-                "mae": result.baseline["mae"],
+                "pearson": block["baseline"]["pearson"],
+                "rmse": block["baseline"]["rmse"],
+                "mae": block["baseline"]["mae"],
             }
         )
         rows.append(
             {
                 "coverage": cov,
-                "method": "HAVI-Methyl",
-                "pearson": result.havi["pearson"],
-                "rmse": result.havi["rmse"],
-                "mae": result.havi["mae"],
+                "method": "HAVI-Methyl simplified",
+                "pearson": block["havi"]["pearson"],
+                "rmse": block["havi"]["rmse"],
+                "mae": block["havi"]["mae"],
             }
         )
 
     out = _common.write_csv("outputs/tables/tab_recovery.csv", rows)
     _common.copy_to_report_tables(out)
-    print(f"Wrote {out}")
-    print(f"Rows: {len(rows)} (numeric values from S={S}, L={L}, n_iter={n_iter}).")
+    print(f"Wrote {out} from {RESULTS_PATH}")
 
 
 if __name__ == "__main__":

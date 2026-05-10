@@ -1,59 +1,53 @@
 \section{Notation glossary}
-\label{app:gloss}
-
+\label{app:glossary}
 \begin{center}
 \small
 \begin{tabular}{llll}
 \toprule
-Symbol & Type & Meaning & Introduced \\
+Symbol & Domain & Meaning & Introduced \\
 \midrule
 \multicolumn{4}{l}{\emph{Indices}} \\
-$s$ & $\in\{1,\dots,S\}$ & Sample index & §\ref{sec:model} \\
-$\ell$ & $\in\{1,\dots,L\}$ & Locus index & §\ref{sec:model} \\
-$j$ & $\in\{1,\dots,n_{s,\ell}\}$ & Fragment index within $(s,\ell)$ & §\ref{sec:model} \\
-$k$ & $\in\{m,u\}$ or $\{1,\dots,T\}$ & State / tissue index & §\ref{app:vbhmm}, §\ref{sec:too} \\
+$s$ & $\{1,\dots,S\}$ & Sample index & \S\ref{sec:model} \\
+$\ell$ & $\{1,\dots,L\}$ & Locus index & \S\ref{sec:model} \\
+$j$ & fragments & Fragment index within $(s,\ell)$ & \S\ref{sec:model} \\
+$k$ & local & CpG index, HMM state, or tissue index by context & \S\ref{sec:model} \\
 \midrule
 \multicolumn{4}{l}{\emph{Latents}} \\
-$\beta_{s,\ell}$ & $\in(0,1)$ & Methylation $\beta$-value & §\ref{sec:model} \\
-$\eta_{s,\ell}$ & $\in\R$ & Logit-methylation, $\logit\beta_{s,\ell}$ & §\ref{sec:model} \\
-$\mu^{\mathrm{pop}}_\ell$ & $\in\R$ & Population logit at locus $\ell$ & §\ref{sec:model} \\
-$\delta_s$ & $\in\R$ & Per-sample logit shift & §\ref{sec:model} \\
-$\bm\pi_s$ & $\in\Delta^{T-1}$ & Tissue fractions for sample $s$ & §\ref{sec:too} \\
-$\zeta$ & $\in\R^{d_c}$ & Encoder representation & §\ref{sec:identify} \\
-$U$ & latent & Unmeasured confounders & §\ref{sec:identify} \\
-$Z$ & multi-component & All latents (App.~A only) & §\ref{app:elbo} \\
+$\beta_{s,\ell}$ & $(0,1)$ & Methylation beta-value & \S\ref{sec:model} \\
+$\eta_{s,\ell}$ & $\R$ & Logit methylation & \S\ref{sec:model} \\
+$\mu^{\mathrm{pop}}_\ell$ & $\R$ & Population logit at locus $\ell$ & \S\ref{sec:model} \\
+$\delta_s$ & $\R$ & Per-sample logit shift & \S\ref{sec:model} \\
+$\bm\pi_s$ & simplex & Tissue fractions for sample $s$ & \S\ref{sec:too} \\
+$\zeta$ & $\R^{d_c}$ & Encoder representation & \S\ref{sec:identify} \\
+$U$ & latent & Unmeasured confounders & \S\ref{sec:identify} \\
 \midrule
-\multicolumn{4}{l}{\emph{Observations}} \\
-$F_{s,\ell}$ & bag of $f_j$ & Fragment-feature bag at locus $\ell$ & §\ref{sec:model} \\
-$f_{s,\ell,j}$ & $\in\R^d$ & Single fragment feature vector & §\ref{sec:model} \\
-$n_{s,\ell}$ & $\in\mathbb{Z}_{\ge 0}$ & Fragment count at locus & §\ref{sec:model} \\
-$n^{\mathrm{cpg}}_{s,\ell}$ & $\in\mathbb{Z}_{\ge 0}$ & CpG-trial count at locus & §\ref{sec:model} \\
-$n^m_{s,\ell}$ & $\in\mathbb{Z}_{\ge 0}$ & Methylated CpG-call count & §\ref{sec:model} \\
-$m_{s,\ell,j}$ & $\in\{1,\dots,256\}$ & 4-mer end-motif of fragment $j$ & §\ref{sec:model} \\
-$X_{\mathrm{prior},s}$ & buffy-coat & Confound input for sample $s$ & §\ref{sec:identify} \\
-$g_\ell$ & $\in\{0,1,2\}$ & mQTL genotype at locus $\ell$ & §\ref{sec:identify} \\
-$y_{s,t}$ & $\in\R^d$ & Per-locus features for HMM baseline & §\ref{app:vbhmm} \\
+\multicolumn{4}{l}{\emph{Observed quantities}} \\
+$F_{s,\ell}$ & set / bag & Fragment-feature bag used by recognition model & \S\ref{sec:model} \\
+$f_{s,\ell,j}$ & $\R^d$ & Single fragment feature vector & \S\ref{sec:model} \\
+$\mathcal{O}_{s,\ell}$ & mixed & Likelihood-bearing observation modalities & \S\ref{sec:model} \\
+$n^{\mathrm{frag}}_{s,\ell}$ & $\mathbb{Z}_{\ge0}$ & Fragment count at locus & \S\ref{sec:model} \\
+$n^{\mathrm{cpg}}_{s,\ell}$ & $\mathbb{Z}_{\ge0}$ & CpG-trial count & \S\ref{sec:model} \\
+$n^m_{s,\ell}$ & $\mathbb{Z}_{\ge0}$ & Methylated CpG-call count & \S\ref{sec:model} \\
+$m_{s,\ell,j}$ & $\{1,\dots,256\}$ & 4-mer end motif & \S\ref{sec:model} \\
+$X_{\mathrm{prior},s}$ & prior input & Buffy-coat or atlas-derived prior input & \S\ref{sec:identify} \\
+$g_{s,a(\ell)}$ & $\{0,1,2\}$ & Sample-specific genotype at anchor variant & \S\ref{sec:identify} \\
 \midrule
-\multicolumn{4}{l}{\emph{Variational parameters}} \\
-$\lambda_\ell=(m_\ell,v_\ell)$ & $\R^2$ & Population variational params & §\ref{sec:varfamily} \\
-$\nu_s=(m_s^\delta,v_s^\delta)$ & $\R^2$ & Sample-shift variational params & §\ref{sec:varfamily} \\
-$\phi$ & $\R^P$ & Encoder + flow parameters & §\ref{sec:varfamily} \\
-$T_\phi$ & flow & Normalizing-flow transform & §\ref{sec:varfamily} \\
-$c_{s,\ell}$ & $\R^{d_c}$ & Encoder context vector & §\ref{sec:varfamily} \\
+\multicolumn{4}{l}{\emph{Variational and objective parameters}} \\
+$\lambda_\ell=(m_\ell,v_\ell)$ & $\R^2$ & Population variational parameters & \S\ref{sec:varfamily} \\
+$\nu_s=(m_s^\delta,v_s^\delta)$ & $\R^2$ & Sample-shift variational parameters & \S\ref{sec:varfamily} \\
+$\phi$ & parameters & Encoder and flow parameters & \S\ref{sec:varfamily} \\
+$T_\phi$ & flow & Normalizing-flow transform & \S\ref{sec:varfamily} \\
+$c_{s,\ell}$ & $\R^{d_c}$ & Encoder context vector & \S\ref{sec:varfamily} \\
+$\mathcal{J}_{\mathrm{total}}$ & scalar & Maximized total objective & \S\ref{sec:too} \\
 \midrule
-\multicolumn{4}{l}{\emph{Model hyperparameters}} \\
-$\mu_0,\tau_0$ & $\R,\R_+$ & Population prior mean and std & §\ref{sec:model} \\
-$\sigma_\delta,\sigma_\eta$ & $\R_+$ & Per-sample, per-cell stds & §\ref{sec:model} \\
-$\kappa$ & $\R_+$ & Beta-Binomial concentration & §\ref{sec:model} \\
-$\beta_{\mathrm{VIB}}$ & $\R_+$ & VIB Lagrangian weight & §\ref{sec:identify} \\
-$\lambda_{\mathrm{cf}},\lambda_{\mathrm{mQTL}},\lambda_{\mathrm{ToO}}$ & $\R_+$ & Loss weights & §\ref{sec:too} \\
-\midrule
-\multicolumn{4}{l}{\emph{Mathematical operators}} \\
-$\sigm(\cdot)$ & $\R\to(0,1)$ & Logistic sigmoid & — \\
-$\logit(\cdot)$ & $(0,1)\to\R$ & Logit, $\log\frac{x}{1-x}$ & — \\
-$\elbo$ & $\R$ & Evidence lower bound & §\ref{sec:elbo} \\
-$\KL(p\|q)$ & $\R_{\ge 0}$ & Kullback-Leibler divergence & — \\
-$\E_q[\cdot]$ & operator & Expectation under $q$ & — \\
+\multicolumn{4}{l}{\emph{Hyperparameters and operators}} \\
+$\mu_0,\tau_0$ & $\R,\R_+$ & Population prior mean and std & \S\ref{sec:model} \\
+$\sigma_\delta,\sigma_\eta$ & $\R_+$ & Sample and local stds & \S\ref{sec:model} \\
+$\kappa$ & $\R_+$ & Beta-Binomial concentration & \S\ref{sec:model} \\
+$\sigm(\cdot)$ & $\R\to(0,1)$ & Logistic sigmoid & -- \\
+$\logit(\cdot)$ & $(0,1)\to\R$ & Logit transform & -- \\
+$\elbo$ & scalar & Evidence lower bound & \S\ref{sec:elbo} \\
+$\KL(p\|q)$ & scalar & Kullback-Leibler divergence & -- \\
 \bottomrule
 \end{tabular}
 \end{center}

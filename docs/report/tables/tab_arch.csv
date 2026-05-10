@@ -1,16 +1,14 @@
-component,output_dim,trainable_params
-"ISAB layer 1 (2 heads, m=64)",128,~100K
-"ISAB layer 2 (2 heads, m=64)",128,~100K
-PMA pool (k=1),128,~50K
-Dilated CNN (sequence encoder),128,~200K
-HyenaDNA proj. (frozen 256 -> 128),128,~30K
-Concat + MLP context fusion,128,~70K
-"NSF block x K=6 (rational-quadratic, 8 bins)",1,~700K
-Beta-Binomial sufficient-stat head,1,~10K
-End-motif categorical head,256,~30K
-Coverage NB head,1,~10K
-Dirichlet head (T=64),64,~10K
-"Population lambda_l (m_l, v_l)",2L,60M (data-scale)
-"Sample shift nu_s (m_s^delta, v_s^delta)",2S,~S
-Total trainable encoder/heads,—,~1.0M
-Total variational parameters,—,~60M
+component,specification,output_dim,trainable_params,status
+ISAB layer 1,"4 heads, m=64, hidden 128",128,~100K,planned full model
+ISAB layer 2,"4 heads, m=64, hidden 128",128,~100K,planned full model
+PMA pool,"4 heads, k=1",128,~50K,planned full model
+Dilated CNN sequence encoder,"6 layers, receptive field 2 kb",128,~200K,optional planned
+HyenaDNA projection,frozen 256 -> 128,128,~30K,optional planned
+Context fusion MLP,fragment + sequence + variational means + coverage,128,~70K,planned full model
+NSF block x K=6,"rational-quadratic, 8 bins",1,~700K,planned full model
+Beta-Binomial head,sufficient-statistic head,1,~10K,planned full model
+End-motif head,256-way categorical,256,~30K,planned full model
+Coverage NB head,mean-dispersion parameterization,1,~10K,planned full model
+Dirichlet ToO head,T<=64 softplus concentration,64,~10K,planned full model
+Population lambda_l,"m_l, v_l",2L,data-scale,variational
+Sample shift nu_s,"m_s^delta, v_s^delta",2S,sample-scale,variational

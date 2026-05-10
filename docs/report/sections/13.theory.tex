@@ -1,45 +1,42 @@
 \section{Theoretical Results}
 \label{sec:theory}
 
-This section collects all formal results in one place. Propositions~\ref{prop:elbo}--\ref{prop:svi} restate or reprove results discussed informally elsewhere in the paper; Propositions~\ref{prop:pooling} and~\ref{prop:fano} are new contributions.
+This section collects formal results and proof-status caveats. Proposition~\ref{prop:elbo} is a standard complete result. Propositions~\ref{prop:identify-restated}, \ref{prop:vib}, and \ref{prop:svi} are conditional statements whose force depends on the stated assumptions and approximation quality. Propositions~\ref{prop:pooling} and~\ref{prop:fano} are formal clarifications that connect the hierarchy and information content to the experimental plan.
 
 \begin{proposition}[Validity of the ELBO]
 \label{prop:elbo}
-For any variational distribution $q$ in the family \eqref{eq:varfamily} absolutely continuous with respect to the prior, $\elbo(q)\le \log p(F)$ with equality iff $q=p(\cdot\mid F)$.
+For any variational distribution $q$ in the family \eqref{eq:varfamily} absolutely continuous with respect to the prior, $\elbo(q)\le \log p(\mathcal{O})$ with equality iff $q=p(\cdot\mid \mathcal{O},F)$ in the model being optimized.
 \end{proposition}
 \begin{proof}
-Standard. $\log p(F)=\elbo(q)+\KL(q\|p(\cdot\mid F))\ge\elbo(q)$ by Gibbs' inequality, with equality iff the KL is zero, i.e.\ iff $q=p(\cdot\mid F)$ almost everywhere.
+Standard. $\log p(\mathcal{O})=\elbo(q)+\KL(q\|p(\cdot\mid \mathcal{O},F))\ge\elbo(q)$ by Gibbs' inequality, with equality iff the KL is zero almost everywhere.
 \end{proof}
 
-\begin{proposition}[Hierarchical identifiability under instrumental anchors]
+\begin{proposition}[Conditional identifiability under instrumental anchors]
 \label{prop:identify-restated}
-Let $U$ denote unmeasured confounders, $X_{\mathrm{prior}}$ the buffy-coat input, and $G$ the mQTL genotype. Assume (i) $G\perp U$ (Mendelian randomization), (ii) $G\not\!\perp \mu^{\mathrm{pop}}$ (relevance), (iii) $G\perp F\mid (\mu^{\mathrm{pop}},U)$ (exclusion), and (iv) the conditional distribution $p(\mu^{\mathrm{pop}}\mid G)$ is complete in the sense of \citet{newey2003instrumental} and \citet{darolles2011nonparametric}. Then the population latent $\mu^{\mathrm{pop}}$ is point-identified from the joint $(F,G,X_{\mathrm{prior}})$, and the VIB-regularized variational posterior \eqref{eq:vib} converges to the correct conditional with $\beta_{\mathrm{VIB}}\to\infty$ in the population limit.
+Under Assumption~\ref{ass:iv}, and in the population limit with correctly specified observation and recognition classes, the structural component of the sample-adjusted methylation latent induced by the anchor distribution is identifiable from the joint distribution of fragment observations, genotypes, and measured covariates. The VIB penalty separately controls information about the specified prior input as $\beta_{\mathrm{VIB}}\to\infty$ when a zero-leakage feasible representation exists.
 \end{proposition}
 \begin{proof}
-This is the statement of Proposition~\ref{prop:identify} in Section~\ref{sec:identify}, reproduced here for completeness; see that section for the proof sketch.
+This restates Proposition~\ref{prop:identify}. Identification follows from the nonparametric IV moment equation under relevance, exclusion, independence, overlap, and completeness; the VIB statement follows from the variational mutual-information upper bound in \eqref{eq:vib}. The proposition is conditional on these assumptions and should be treated as a proof sketch for the proposed anchor strategy rather than an unconditional deconfounding guarantee.
 \end{proof}
 
-\begin{proposition}[Asymptotic VIB-bounded prior leakage]
+\begin{proposition}[Asymptotic VIB leakage]
 \label{prop:vib}
-Let $\eta_{\mathrm{leak}}(q)=I_q(\zeta;X_{\mathrm{prior}})$ where $\zeta$ is the encoder representation under $q$. Under the VIB-regularized objective $\elbo_{\mathrm{VIB}}=\elbo - \beta_{\mathrm{VIB}}\,\E_{X_{\mathrm{prior}}}[\KL(q_\phi(\zeta\mid X_{\mathrm{prior}})\|r(\zeta))]$ with $r(\zeta)=\N(0,I)$, any sequence of optima $q^*_{\beta_{\mathrm{VIB}}}$ as $\beta_{\mathrm{VIB}}\to\infty$ satisfies $\eta_{\mathrm{leak}}(q^*_{\beta_{\mathrm{VIB}}})\to 0$.
+Let $B(q)=\E_{X_{\mathrm{prior}}}[\KL(q_\phi(\zeta\mid X_{\mathrm{prior}})\|r(\zeta))]$ be the VIB upper bound and let $\eta_{\mathrm{leak}}(q)=I_q(\zeta;X_{\mathrm{prior}})$. If a feasible sequence of posteriors exists with $B(q)\to0$ and non-divergent reconstruction objective, then any sequence of global optima of $\elbo(q)-\beta_{\mathrm{VIB}}B(q)$ satisfies $\eta_{\mathrm{leak}}(q^*_{\beta_{\mathrm{VIB}}})\to0$ as $\beta_{\mathrm{VIB}}\to\infty$.
 \end{proposition}
 \begin{proof}
-The VIB upper bound on mutual information \citep{alemi2017vib} gives
-\[
-\eta_{\mathrm{leak}}(q) \le \E_{X_{\mathrm{prior}}}\big[\KL(q_\phi(\zeta\mid X_{\mathrm{prior}})\|r(\zeta))\big].
-\]
-Under $\elbo_{\mathrm{VIB}}$, the optimum trades off reconstruction against this upper bound. As $\beta_{\mathrm{VIB}}\to\infty$, the regularized objective forces the upper bound to zero in the limit (otherwise the regularizer dominates and the objective diverges to $-\infty$), and hence $\eta_{\mathrm{leak}}\to 0$.
+The VIB upper bound gives $\eta_{\mathrm{leak}}(q)\le B(q)$ \citep{alemi2017vib}. If the optimum retained a positive lower bound on $B(q)$ as $\beta_{\mathrm{VIB}}\to\infty$, its regularized objective would eventually be worse than the feasible low-leakage sequence with bounded reconstruction. Hence optimal $B(q^*_{\beta_{\mathrm{VIB}}})$ must tend to zero, and so does $\eta_{\mathrm{leak}}$.
 \end{proof}
 
-\begin{corollary}[Finite-$\beta_{\mathrm{VIB}}$ leakage bound]
+\begin{corollary}[Finite-$\beta_{\mathrm{VIB}}$ comparison bound]
 \label{cor:vib-finite}
-Let $G(\beta_{\mathrm{VIB}})=\elbo(q_{\mathrm{ML}})-\elbo(q^*_{\beta_{\mathrm{VIB}}})$ be the gap between the unregularized maximum-likelihood ELBO and the VIB-regularized optimum. Then
+Let $q^*_\beta$ maximize $\elbo(q)-\beta B(q)$, and let $q_0$ be any feasible reference posterior. If $\elbo(q)\le \elbo_{\max}$ over the feasible class, then
 \[
-\eta_{\mathrm{leak}}(q^*_{\beta_{\mathrm{VIB}}}) \le \frac{G(\beta_{\mathrm{VIB}})}{\beta_{\mathrm{VIB}}}.
+\eta_{\mathrm{leak}}(q^*_\beta) \le B(q^*_\beta) \le B(q_0)+\frac{\elbo_{\max}-\elbo(q_0)}{\beta}.
 \]
+In particular, if a zero-leakage feasible reference exists, the upper bound is $O(1/\beta)$ up to its reconstruction gap.
 \end{corollary}
 \begin{proof}
-By construction, $\elbo_{\mathrm{VIB}}(q^*_{\beta_{\mathrm{VIB}}}) \ge \elbo_{\mathrm{VIB}}(q_{\mathrm{ML}}) = \elbo(q_{\mathrm{ML}}) - \beta_{\mathrm{VIB}}\cdot\eta_{\mathrm{leak}}(q_{\mathrm{ML}})\ge \elbo(q_{\mathrm{ML}}) - \beta_{\mathrm{VIB}}\cdot\eta_{\mathrm{leak}}^{\max}$ where $\eta_{\mathrm{leak}}^{\max}$ is a uniform upper bound on the leakage of any feasible $q$ (which exists because mutual information is bounded by entropy of $X_{\mathrm{prior}}$). Rearranging, $\beta_{\mathrm{VIB}}\cdot\eta_{\mathrm{leak}}(q^*_{\beta_{\mathrm{VIB}}})\le \elbo(q_{\mathrm{ML}})-\elbo(q^*_{\beta_{\mathrm{VIB}}}) = G(\beta_{\mathrm{VIB}})$, giving the bound.
+Optimality gives $\elbo(q^*_\beta)-\beta B(q^*_\beta)\ge \elbo(q_0)-\beta B(q_0)$. Rearranging yields $B(q^*_\beta)\le B(q_0)+[\elbo(q^*_\beta)-\elbo(q_0)]/\beta\le B(q_0)+[\elbo_{\max}-\elbo(q_0)]/\beta$. The leakage bound follows from $\eta_{\mathrm{leak}}\le B$.
 \end{proof}
 
 \begin{proposition}[Conformal marginal coverage]
@@ -47,43 +44,46 @@ By construction, $\elbo_{\mathrm{VIB}}(q^*_{\beta_{\mathrm{VIB}}}) \ge \elbo_{\m
 For any joint distribution of $(F,\beta^*)$ and any model $q(\beta\mid F)$, if calibration and test points are exchangeable, the conformal set $C(F_{\mathrm{new}})$ defined in Section~\ref{sec:calibration} satisfies $\Pr(\beta^*_{\mathrm{new}}\in C(F_{\mathrm{new}}))\ge 1-\alpha$.
 \end{proposition}
 \begin{proof}
-This is the statement of Proposition~\ref{prop:conformal} in Section~\ref{sec:calibration}, reproduced here for completeness; the proof appears in that section.
+This restates Proposition~\ref{prop:conformal}; the proof appears in Section~\ref{sec:calibration}.
 \end{proof}
 
-\begin{proposition}[Convergence of non-conjugate natural-gradient SVI]
+\begin{proposition}[Convergence of the surrogate non-conjugate natural-gradient SVI]
 \label{prop:svi}
-Let $\lambda^{(t)}$ denote the variational natural parameters of the population layer under the modified non-conjugate update of \citet{khan2017cvi,lin2019natgrad}, applied with the moment-matching target \eqref{eq:nat-target} and Robbins-Monro step sizes $\rho_t$ satisfying $\sum\rho_t=\infty$, $\sum\rho_t^2<\infty$. Under bounded-gradient-norm regularity on the encoder and the local layer, the iterates $\lambda^{(t)}$ converge almost surely to a stationary point of the ELBO.
+Let $\lambda^{(t)}$ denote the variational natural parameters of the population layer under the moment-matched update \eqref{eq:nat-update}, and suppose the Robbins-Monro conditions hold, stochastic gradients have bounded second moments, the surrogate moment-matching bias is either zero or vanishes asymptotically, and the encoder parameters remain in a compact regular set. Then the iterates converge almost surely to a stationary point of the corresponding surrogate regularized objective.
 \end{proposition}
 \begin{proof}
-The bare statement of \citet{hoffman2013svi} Theorem 1 does not directly apply because the local layer $q_\phi(\eta\mid F)$ is a normalizing flow, not a member of the conjugate exponential family conditional on $\mu^{\mathrm{pop}}$. \citet{khan2017cvi,lin2019natgrad} extend natural-gradient SVI to non-conjugate models by replacing the conjugate sufficient statistics with moment-matched proxies $\hat\lambda^{\mathrm{nat}}_\ell$ computed from the encoder posterior. Under bounded-gradient-norm regularity on the encoder and the local layer, this preserves the unbiasedness of the gradient estimator (in the natural parameterization) up to vanishing bias from the moment-matching, and combined with \citet{robbins1951} stochastic-approximation conditions on $\rho_t$, the iterates converge a.s.\ to a stationary point of the regularized ELBO. The specific regularity conditions are stated as Assumptions A1--A4 of \citet{lin2019natgrad}.
+Exact conjugate SVI convergence does not apply because the local layer is a flow and the likelihood is non-conjugate. The update can instead be viewed as stochastic approximation on the surrogate natural-gradient field induced by the moment-matched local expectations, following the non-conjugate VI analyses of \citet{khan2017cvi,lin2019natgrad}. Under bounded-variance stochastic gradients and vanishing approximation bias, Robbins-Monro stochastic approximation converges to the stationary set of the surrogate objective. The statement is therefore deliberately weaker than convergence to a global optimum of the exact full ELBO.
 \end{proof}
 
 \begin{proposition}[Variance reduction from hierarchical pooling]
 \label{prop:pooling}
-Let $\hat\beta^{\mathrm{indep}}_{s,\ell}$ be the per-sample posterior mean estimator of $\beta_{s,\ell}$ from per-sample inference (no population pooling), and let $\hat\beta^{\mathrm{HAVI}}_{s,\ell}$ be the per-sample posterior mean under the HAVI-Methyl hierarchical model with population variance $\tau_0^2$ and per-sample observation precision $\tau_{\mathrm{obs}}^{-2}$. Assume the population mean $\mu^{\mathrm{pop}}_\ell$ is well-estimated, with population variance $\hat\tau_{\mathrm{pop}}^2$. Then on the logit scale,
+Consider the logit-scale Gaussian submodel with known sample shift and a noisy local observation $\tilde\eta_{s,\ell}\sim\N(\eta_{s,\ell},\tau_{\mathrm{obs}}^2)$, and suppose the population posterior for $\mu^{\mathrm{pop}}_\ell$ has variance $\hat\tau_{\mathrm{pop}}^2$. The posterior variance of the hierarchically pooled logit estimator is
 \[
-\Var(\hat\eta^{\mathrm{HAVI}}_{s,\ell}) \le \frac{\hat\tau_{\mathrm{pop}}^2 \cdot \tau_{\mathrm{obs}}^2}{\hat\tau_{\mathrm{pop}}^2 + \tau_{\mathrm{obs}}^2} < \tau_{\mathrm{obs}}^2 = \Var(\hat\eta^{\mathrm{indep}}_{s,\ell}),
+\Var(\hat\eta^{\mathrm{HAVI}}_{s,\ell})=\frac{\hat\tau_{\mathrm{pop}}^2\tau_{\mathrm{obs}}^2}{\hat\tau_{\mathrm{pop}}^2+\tau_{\mathrm{obs}}^2}\le \tau_{\mathrm{obs}}^2=\Var(\hat\eta^{\mathrm{indep}}_{s,\ell}),
 \]
-with strict inequality whenever $\hat\tau_{\mathrm{pop}}^2 < \infty$. The variance reduction factor is $\rho_\ell=\hat\tau_{\mathrm{pop}}^2/(\hat\tau_{\mathrm{pop}}^2+\tau_{\mathrm{obs}}^2)\in[0,1)$, with $\rho_\ell\to 0$ when the population is highly concentrated (strong pooling) and $\rho_\ell\to 1$ when the population is diffuse (weak pooling).
+with strict inequality for finite $\hat\tau_{\mathrm{pop}}^2$. On the $\beta$ scale, the same comparison holds approximately by the delta method away from the boundaries.
 \end{proposition}
 \begin{proof}
-On the logit scale, the model is a Gaussian-Gaussian conjugate hierarchy with prior $\mu^{\mathrm{pop}}_\ell\sim\N(\mu_0,\tau_0^2)$, per-sample observation $\eta_{s,\ell}\mid\mu^{\mathrm{pop}}_\ell\sim\N(\mu^{\mathrm{pop}}_\ell+\delta_s,\tau_{\mathrm{obs}}^2)$. The per-sample independent estimator is the maximum-likelihood estimate from a single observation: $\hat\eta^{\mathrm{indep}}=\eta_{s,\ell}$ with variance $\tau_{\mathrm{obs}}^2$. The hierarchical posterior mean is the conjugate posterior $\hat\eta^{\mathrm{HAVI}}_{s,\ell}=(\hat\tau_{\mathrm{pop}}^{-2}\hat\mu^{\mathrm{pop}}_\ell + \tau_{\mathrm{obs}}^{-2}\eta_{s,\ell})/(\hat\tau_{\mathrm{pop}}^{-2}+\tau_{\mathrm{obs}}^{-2})$, with posterior variance $1/(\hat\tau_{\mathrm{pop}}^{-2}+\tau_{\mathrm{obs}}^{-2})=\hat\tau_{\mathrm{pop}}^2\tau_{\mathrm{obs}}^2/(\hat\tau_{\mathrm{pop}}^2+\tau_{\mathrm{obs}}^2)$. This is strictly less than $\tau_{\mathrm{obs}}^2$ for any finite $\hat\tau_{\mathrm{pop}}^2$, completing the bound. This is the textbook James-Stein / shrinkage-estimation result; the proposition states it in the context of the HAVI-Methyl hierarchy.
+The logit-scale result is the conjugate Gaussian posterior-variance formula for combining a Gaussian prior with a Gaussian observation. The delta-method statement follows by multiplying both variances by $[\sigm'(\eta)]^2$ locally.
 \end{proof}
 
 \begin{proposition}[Information-theoretic recoverability lower bound]
 \label{prop:fano}
-Let $\hat\beta_{s,\ell}(F_{s,\ell})$ be any estimator of $\beta_{s,\ell}$ from the fragment bag $F_{s,\ell}$, and let $I(\beta_{s,\ell};F_{s,\ell})$ denote the mutual information between the latent and the fragment bag under the generative model of Section~\ref{sec:model}. Discretize $\beta_{s,\ell}$ into $M$ equally-sized bins on $[0,1]$, and let $\tilde\beta_{s,\ell}$ be the bin index. For any estimator $\hat\beta_{s,\ell}$ with bin-error probability $P_e=\Pr(\hat{\tilde\beta}\ne\tilde\beta)$,
+Let $\{\beta_1,\dots,\beta_M\}\subset[0,1]$ be a packing with separation $\Delta$, let $W\sim\mathrm{Unif}\{1,\dots,M\}$ select $\beta_W$, and let $F$ be generated from $\beta_W$. For any estimator $\hat\beta(F)$, if $\hat W$ is the nearest packing point to $\hat\beta(F)$, then
 \[
-P_e \ge 1 - \frac{I(\beta_{s,\ell};F_{s,\ell}) + \log 2}{\log M}.
+\Pr(\hat W\ne W) \ge 1 - \frac{I(W;F)+\log 2}{\log M},
 \]
-Equivalently, $\E[(\hat\beta-\beta)^2]\ge \Omega(M^{-2})\cdot(1-P_e)\ge \Omega(M^{-2})\cdot\big[(I(\beta;F)+\log 2)/\log M\big]$ asymptotically as $M\to\infty$.
+and
+\[
+\E[(\hat\beta-\beta_W)^2]\ge \frac{\Delta^2}{4}\left(1 - \frac{I(W;F)+\log 2}{\log M}\right).
+\]
 \end{proposition}
 \begin{proof}
-This is a direct application of Fano's inequality \citep{cover2006information}, Theorem 2.10.1, to the discretized estimation problem. Fano's inequality states that for any estimator $\hat W$ of a discrete random variable $W\in\{1,\dots,M\}$ from observation $Y$, with error probability $P_e=\Pr(\hat W\ne W)$, $H(P_e)+P_e\log(M-1)\ge H(W\mid Y)$, where $H$ denotes entropy. Rearranging, $P_e\ge (H(W\mid Y)-1)/\log M=(H(W)-I(W;Y)-1)/\log M$. For $W=\tilde\beta$ uniform on $M$ bins, $H(W)=\log M$, so $P_e\ge 1-(I(W;Y)+1)/\log M\ge 1-(I(\beta;F)+\log 2)/\log M$ where the last inequality uses $I(\tilde\beta;F)\le I(\beta;F)$ by the data-processing inequality (the binning is a deterministic function of $\beta$). The MSE bound follows because squared error is at least $(2M)^{-2}$ for any prediction outside the correct bin.
+Fano's inequality gives the stated lower bound on the packing-index error probability \citep{cover2006information}. If $\hat W\ne W$, then the estimate is closer to another packing point than to the true one, which implies $|\hat\beta-\beta_W|\ge \Delta/2$. Multiplying the squared-error contribution $\Delta^2/4$ by the error-probability lower bound yields the result.
 \end{proof}
 
 \begin{remark}
-Proposition~\ref{prop:fano} provides a fundamental information-theoretic lower bound on the achievable estimation error: no estimator, including HAVI-Methyl, can recover $\beta_{s,\ell}$ to better mean-square error than the bound implies given the mutual information available from the fragment bag. This frames HAVI-Methyl's empirical performance as approaching a generative-model-determined ceiling, rather than as competing only against other estimators on a relative scale. Estimating $I(\beta;F)$ from the simulator output gives a quantitative benchmark for how much room HAVI-Methyl still has to grow.
+Proposition~\ref{prop:fano} links low mutual information between fragment bags and methylation to unavoidable estimation error. This motivates the planned stratified experiments by coverage, CpG-density or low-information proxies, chromatin state, GC, and mappability: these strata are empirical probes of where the fragment bag contains too little information for any estimator to recover $\beta$ accurately.
 \end{remark}
 
 % ============================================================

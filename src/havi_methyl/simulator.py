@@ -266,6 +266,70 @@ def simulate_dataset(
     )
 
 
+# ---------- Simulator validation runner (App. H, IMPL-09) ----------
+
+
+def simulator_validation_metrics(
+    n_frag: int = 100_000,
+    rng: int | np.random.Generator | None = None,
+    params: SimulatorParams | None = None,
+) -> dict[str, float]:
+    """Compute App. H validation axes from a single simulator draw.
+
+    Returns:
+      - ``length_primary_mode_bp``: histogram-derived primary mode of the
+        fragment-length distribution.
+      - ``length_secondary_height``: max histogram density in 320-350 bp.
+      - ``length_periodicity_amplitude``: amplitude of the 10.4-bp peak in
+        the autocorrelation of integer-rounded lengths in 100-300 bp.
+      - ``top4_motif_fraction``: cumulative frequency of the four most
+        common 5'-cut 4-mers under the random-baseline simulator.
+      - ``meth_cut_bias_effect_size``: difference in mean GC-content between
+        methylated and unmethylated fragments at one matched locus, as a
+        proxy for methylation-conditioned cut bias.
+    """
+    gen = get_rng(rng)
+    p = params or SimulatorParams()
+    L = sample_fragment_lengths(n_frag, params=p, rng=gen)
+    edges = np.arange(50, 800, 5)
+    hist, _ = np.histogram(L, bins=edges, density=True)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    primary_mode = float(centers[hist.argmax()])
+    secondary_band = (320 <= centers) & (centers <= 350)
+    secondary_height = float(hist[secondary_band].max()) if secondary_band.any() else 0.0
+    # 10.4-bp periodicity: autocorrelation of length residuals in 100-300 bp.
+    L_int = np.rint(L).astype(int)
+    short = L_int[(L_int >= 100) & (L_int <= 300)]
+    counts = np.bincount(short - 100, minlength=201).astype(float)
+    counts -= counts.mean()
+    if counts.std() > 0:
+        counts /= counts.std()
+    autocorr = np.correlate(counts, counts, mode="full") / len(counts)
+    mid = len(autocorr) // 2
+    lag10 = autocorr[mid + 10]
+    lag11 = autocorr[mid + 11]
+    period_peak = float(max(lag10, lag11))
+    # Motif top-4.
+    base = make_motif_logits(rng=gen)
+    motifs = sample_end_motifs(n_frag, methylation=0.5, base_logits=base, rng=gen)
+    counts_motif = np.bincount(motifs, minlength=256)
+    top4 = float(np.sort(counts_motif)[-4:].sum() / counts_motif.sum())
+    # Methylation-conditioned cut bias: GC-effect at beta=0.95 vs beta=0.05.
+    feats_hi, _ = sample_fragment_bag(0.95, n_frag // 10, rng=gen)
+    feats_lo, _ = sample_fragment_bag(0.05, n_frag // 10, rng=gen)
+    if feats_hi.shape[0] and feats_lo.shape[0]:
+        gc_effect = float(feats_hi[:, 2].mean() - feats_lo[:, 2].mean())
+    else:
+        gc_effect = 0.0
+    return {
+        "length_primary_mode_bp": primary_mode,
+        "length_secondary_height": secondary_height,
+        "length_periodicity_amplitude": period_peak,
+        "top4_motif_fraction": top4,
+        "meth_cut_bias_effect_size": gc_effect,
+    }
+
+
 # ---------- Cut-site density (App. E Step 2) ----------
 
 

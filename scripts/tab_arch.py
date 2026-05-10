@@ -1,5 +1,10 @@
-"""Regenerate Appendix D Table~\\ref{tab:arch} — HAVI-Methyl architecture
+"""Regenerate Appendix~D Table~\\ref{tab:arch} — HAVI-Methyl architecture
 parameter accounting at d_c=128, L_e=2 ISAB layers, K=6 NSF blocks, T=64.
+
+The schema matches the report's ``docs/report/tables/tab_arch.csv``: each row
+documents a planned full-model component, its specification, output dim,
+trainable-parameter estimate, and implementation status. Components flagged
+``planned full model`` are listed in IMPL-02..05 of CODING_AGENT_HANDOFF.md.
 """
 
 from __future__ import annotations
@@ -15,67 +20,95 @@ def main() -> None:
     h = hm.DEFAULT_HPARAMS
     rows = [
         {
-            "component": f"ISAB layer 1 ({h.isab_layers} heads, m={h.inducing_points})",
+            "component": "ISAB layer 1",
+            "specification": f"4 heads, m={h.inducing_points}, hidden {h.hidden_dim}",
             "output_dim": h.hidden_dim,
             "trainable_params": "~100K",
+            "status": "planned full model",
         },
         {
-            "component": f"ISAB layer 2 ({h.isab_layers} heads, m={h.inducing_points})",
+            "component": "ISAB layer 2",
+            "specification": f"4 heads, m={h.inducing_points}, hidden {h.hidden_dim}",
             "output_dim": h.hidden_dim,
             "trainable_params": "~100K",
+            "status": "planned full model",
         },
-        {"component": "PMA pool (k=1)", "output_dim": h.hidden_dim, "trainable_params": "~50K"},
         {
-            "component": "Dilated CNN (sequence encoder)",
+            "component": "PMA pool",
+            "specification": "4 heads, k=1",
+            "output_dim": h.hidden_dim,
+            "trainable_params": "~50K",
+            "status": "planned full model",
+        },
+        {
+            "component": "Dilated CNN sequence encoder",
+            "specification": "6 layers, receptive field 2 kb",
             "output_dim": h.hidden_dim,
             "trainable_params": "~200K",
+            "status": "optional planned",
         },
         {
-            "component": "HyenaDNA proj. (frozen 256 -> 128)",
+            "component": "HyenaDNA projection",
+            "specification": "frozen 256 -> 128",
             "output_dim": h.hidden_dim,
             "trainable_params": "~30K",
+            "status": "optional planned",
         },
         {
-            "component": "Concat + MLP context fusion",
+            "component": "Context fusion MLP",
+            "specification": "fragment + sequence + variational means + coverage",
             "output_dim": h.hidden_dim,
             "trainable_params": "~70K",
+            "status": "planned full model",
         },
         {
-            "component": f"NSF block x K={h.flow_blocks} (rational-quadratic, {h.nsf_bins} bins)",
+            "component": f"NSF block x K={h.flow_blocks}",
+            "specification": f"rational-quadratic, {h.nsf_bins} bins",
             "output_dim": 1,
             "trainable_params": "~700K",
+            "status": "planned full model",
         },
         {
-            "component": "Beta-Binomial sufficient-stat head",
+            "component": "Beta-Binomial head",
+            "specification": "sufficient-statistic head",
             "output_dim": 1,
             "trainable_params": "~10K",
+            "status": "planned full model",
         },
-        {"component": "End-motif categorical head", "output_dim": 256, "trainable_params": "~30K"},
-        {"component": "Coverage NB head", "output_dim": 1, "trainable_params": "~10K"},
         {
-            "component": f"Dirichlet head (T={h.t_max_hdp})",
+            "component": "End-motif head",
+            "specification": "256-way categorical",
+            "output_dim": 256,
+            "trainable_params": "~30K",
+            "status": "planned full model",
+        },
+        {
+            "component": "Coverage NB head",
+            "specification": "mean-dispersion parameterization",
+            "output_dim": 1,
+            "trainable_params": "~10K",
+            "status": "planned full model",
+        },
+        {
+            "component": "Dirichlet ToO head",
+            "specification": f"T<={h.t_max_hdp} softplus concentration",
             "output_dim": h.t_max_hdp,
             "trainable_params": "~10K",
+            "status": "planned full model",
         },
         {
-            "component": "Population lambda_l (m_l, v_l)",
+            "component": "Population lambda_l",
+            "specification": "m_l, v_l",
             "output_dim": "2L",
-            "trainable_params": "60M (data-scale)",
+            "trainable_params": "data-scale",
+            "status": "variational",
         },
         {
-            "component": "Sample shift nu_s (m_s^delta, v_s^delta)",
+            "component": "Sample shift nu_s",
+            "specification": "m_s^delta, v_s^delta",
             "output_dim": "2S",
-            "trainable_params": "~S",
-        },
-        {
-            "component": "Total trainable encoder/heads",
-            "output_dim": "—",
-            "trainable_params": "~1.0M",
-        },
-        {
-            "component": "Total variational parameters",
-            "output_dim": "—",
-            "trainable_params": "~60M",
+            "trainable_params": "sample-scale",
+            "status": "variational",
         },
     ]
     out = _common.write_csv("outputs/tables/tab_arch.csv", rows)

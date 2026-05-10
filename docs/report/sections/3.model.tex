@@ -1,11 +1,10 @@
 \section{Probabilistic Model}
 \label{sec:model}
 
-\subsection{Notation and indices}
-We index samples $s\in\{1,\dots,S\}$, loci $\ell\in\{1,\dots,L\}$, and fragments $j\in\{1,\dots,n^{\mathrm{frag}}_{s,\ell}\}$ overlapping locus $\ell$ in sample $s$. Let $\beta_{s,\ell}\in(0,1)$ denote the unobserved methylation $\beta$-value at locus $\ell$ in sample $s$, defined as the mean methylation fraction across the CpGs of the locus. Let $F_{s,\ell} = \{f_{s,\ell,j}\}_{j=1}^{n^{\mathrm{frag}}_{s,\ell}}$ denote the bag of fragment-feature vectors. Each $f_{s,\ell,j}\in\R^d$ encodes the seven canonical fragmentomic features used by HAVI-Methyl: fragment length, 5'-end 4-mer motif as a one-hot vector of length 256, 3'-end 4-mer motif as a one-hot vector of length 256, GC content of the fragment, mapping orientation as a binary indicator, mappability of the fragment, and inferred distance to the nearest nucleosome center. The per-fragment CpG-level outcomes are denoted $\{y_{s,\ell,j,k}\in\{0,1\}\}_k$ for the $k$-th CpG within fragment $j$, where $y=1$ encodes a methylated CpG.
+Let $s\in\{1,\dots,S\}$ index samples and $\ell\in\{1,\dots,L\}$ index CpG loci or windows. Let $F_{s,\ell}=\{f_{s,\ell,j}\}_{j=1}^{n^{\mathrm{frag}}_{s,\ell}}$ denote the observed fragment-feature bag used by the recognition network. Each $f_{s,\ell,j}\in\R^d$ encodes fragment length, 5'- and 3'-end 4-mer motifs, GC content, orientation, mappability, and inferred distance to the nearest nucleosome center. We write $\mathcal{O}_{s,\ell}$ for the observed generative modalities at a locus: direct methylation calls $\mathcal{Y}_{s,\ell}$ when available, pseudo-counts $(n^m_{s,\ell},n^{\mathrm{cpg}}_{s,\ell})$ when only aggregate labels are available, end motifs $\mathcal{M}_{s,\ell}$, and fragment coverage $n^{\mathrm{frag}}_{s,\ell}$. Thus $F_{s,\ell}$ is the recognition input, while $\mathcal{O}_{s,\ell}$ denotes the likelihood-bearing observations.
 
 \subsection{Three-level hierarchy}
-We place a three-level hierarchy directly on the logit-methylation latent $\eta_{s,\ell}=\logit(\beta_{s,\ell})\in\R$, parameterizing the population locus prior on the same logit scale to avoid an unnecessary nesting of $\sigm$ and $\logit$:
+We place a three-level hierarchy directly on the logit-methylation latent $\eta_{s,\ell}=\logit(\beta_{s,\ell})\in\R$, parameterizing the population locus prior on the same logit scale:
 \begin{align}
 \mu^{\mathrm{pop}}_\ell &\sim \N(\mu_0, \tau_0^2), \quad \ell=1,\dots,L, \label{eq:pop}\\
 \delta_s &\sim \N(0, \sigma_\delta^2), \quad s=1,\dots,S, \label{eq:samp}\\
@@ -13,49 +12,59 @@ We place a three-level hierarchy directly on the logit-methylation latent $\eta_
 \beta_{s,\ell} &= \sigm(\eta_{s,\ell}),\qquad
 \beta^{\mathrm{pop}}_\ell = \sigm(\mu^{\mathrm{pop}}_\ell).
 \end{align}
-The latent $\mu^{\mathrm{pop}}_\ell$ is the logit-scale population mean for locus $\ell$; $\beta^{\mathrm{pop}}_\ell\in(0,1)$ is the corresponding methylation level reported to the user. The Gaussian prior on the logit scale gives heavier tails near $\{0,1\}$ than a Beta prior would, which is important for hyper- and hypo-methylated loci.
+The latent $\mu^{\mathrm{pop}}_\ell$ is the logit-scale population mean for locus $\ell$; $\beta^{\mathrm{pop}}_\ell\in(0,1)$ is the corresponding methylation level reported to the user. The Gaussian prior on the logit scale gives heavier tails near $\{0,1\}$ than a Beta prior would, which is useful for hyper- and hypo-methylated loci.
 
 \paragraph{Identifiability constraint.} The additive form $\eta_{s,\ell}=\mu^{\mathrm{pop}}_\ell+\delta_s+\mathrm{noise}$ is symmetric under the shift $\mu^{\mathrm{pop}}_\ell\mapsto\mu^{\mathrm{pop}}_\ell+c$, $\delta_s\mapsto\delta_s-c$, which leaves every $\eta_{s,\ell}$ invariant. We break this symmetry by imposing a sum-to-zero constraint on the per-sample shifts,
 \begin{equation}
 \sum_{s=1}^{S}\delta_s=0,
 \label{eq:sumzero}
 \end{equation}
-implemented in the variational posterior by re-centering after each natural-gradient update (Section~\ref{sec:elbo}). The mean-zero prior on $\delta_s$ provides additional soft identifiability through the prior mean.
+implemented in the variational posterior by a global or running recentering correction on the sample-shift means, not by a mini-batch-only correction. The mean-zero prior on $\delta_s$ provides additional soft identifiability through the prior mean.
+
+\begin{assumption}[Observation and hierarchy conventions]
+\label{ass:obs}
+Throughout the likelihood derivations, conditional independence is assumed only after conditioning on the latent $\eta_{s,\ell}$, sequence context, mappability/GC covariates, and any stated sample-level covariates. Missing observation modalities are omitted from the likelihood rather than imputed as observed. When WGS-only fragment features are used without direct methylation calls, aggregate methylation counts are treated as pseudo-observations only in training or validation settings where such labels are supplied by a separate caller or assay.
+\end{assumption}
 
 \subsection{Likelihoods}
-Conditional on $\beta_{s,\ell}$, the observations factorize over three modalities, with one modality per fragment-level feature class.
+Conditional on $\beta_{s,\ell}$ and the relevant covariates, the observed generative modalities factorize as follows.
 
-\paragraph{Per-fragment-CpG Bernoulli likelihood (primary form).} For each CpG $k$ inside fragment $j$ overlapping locus $\ell$ in sample $s$, the methylation indicator $y_{s,\ell,j,k}$ is drawn Bernoulli with probability $\beta_{s,\ell}$:
+\paragraph{Per-fragment-CpG Bernoulli likelihood (direct-call form).} For each CpG $k$ inside fragment $j$ overlapping locus $\ell$ in sample $s$, a direct methylation indicator $y_{s,\ell,j,k}\in\{0,1\}$ is drawn Bernoulli with probability $\beta_{s,\ell}$:
 \begin{equation}
 y_{s,\ell,j,k}\mid \beta_{s,\ell}\sim \mathrm{Bernoulli}(\beta_{s,\ell}).
 \label{eq:bern}
 \end{equation}
-This is the single-molecule view: every CpG instance is an independent Bernoulli trial whose success probability is the locus-level methylation fraction. The corresponding fragment-level features $f_{s,\ell,j}$ enter the encoder of the variational posterior (Section~\ref{sec:varfamily}) but not the likelihood; that is, $f$ informs the posterior $q_\phi(\eta\mid F)$, not the generative model $p(F\mid \eta)$. This avoids the circularity of using a learned scoring head as part of the likelihood.
+This form is appropriate when methylation is directly measured or validated. Fragment features $f_{s,\ell,j}$ enter the encoder of the variational posterior (Section~\ref{sec:varfamily}); unless a specific feature likelihood is stated, they should not be silently treated as if they were direct methylation labels.
 
-\paragraph{Beta-Binomial pseudo-likelihood (aggregate form).} When per-CpG calls are unavailable and only locus-level totals are observed, we aggregate to a Beta-Binomial pseudo-likelihood:
+\paragraph{Beta-Binomial pseudo-likelihood (aggregate form).} When per-CpG direct calls are unavailable and only locus-level methylated-count summaries are observed or generated by a classifier, we aggregate to a Beta-Binomial pseudo-likelihood:
 \begin{equation}
 n^m_{s,\ell}\mid \beta_{s,\ell}, n^{\mathrm{cpg}}_{s,\ell} \sim \BB\big(n^{\mathrm{cpg}}_{s,\ell},\, \kappa\beta_{s,\ell},\,\kappa(1-\beta_{s,\ell})\big),
 \label{eq:bb}
 \end{equation}
-where $n^{\mathrm{cpg}}_{s,\ell}=\sum_j n^{\mathrm{cpg}}_{s,\ell,j}$ is the total number of CpG \emph{trials} at locus $\ell$ in sample $s$ summed over all fragments and CpGs they cover, $n^m_{s,\ell}=\sum_{j,k}y_{s,\ell,j,k}$ is the count of those trials called methylated, and $\kappa>0$ is a concentration hyperparameter that absorbs over-dispersion from PCR duplicates and end-repair bias. We refer to \eqref{eq:bb} as a \emph{pseudo-likelihood} because in real data the per-CpG indicator $y_{s,\ell,j,k}$ is itself the output of a methylation caller (or, in the cfDNA-WGS regime, of a learned per-fragment classifier); we treat the resulting counts as if they were direct observations, with the Beta-Binomial concentration $\kappa$ shrinking the effective sample size to absorb classifier uncertainty.
+where $n^{\mathrm{cpg}}_{s,\ell}=\sum_j n^{\mathrm{cpg}}_{s,\ell,j}$ is the number of CpG trials and $n^m_{s,\ell}$ is the number called methylated. We call this a pseudo-likelihood because, in WGS-only settings, these labels are outputs of a separate validation or classifier pipeline rather than direct WGS observations. The concentration $\kappa>0$ shrinks the effective sample size to absorb classifier uncertainty and over-dispersion.
 
-\paragraph{Categorical end-motif likelihood, sequence-conditioned.} The 4-mer end motif $m_{s,\ell,j}\in\{1,\dots,256\}$ is dominantly determined by genomic sequence context at the cut site, with methylation acting as a secondary modifier of cut-site preference \citep{zhou2022}. We therefore condition the categorical on both methylation and a frozen sequence-context embedding $c^{\mathrm{seq}}_\ell$ extracted from the local DNA:
+\paragraph{Categorical end-motif likelihood, sequence-conditioned.} The 4-mer end motif $m_{s,\ell,j}\in\{1,\dots,256\}$ is dominantly determined by genomic sequence context at the cut site, with methylation acting as a secondary modifier of cut-site preference \citep{zhou2022}. We therefore condition the categorical on both methylation and a frozen or learned sequence-context embedding $c^{\mathrm{seq}}_\ell$:
 \begin{equation}
 m_{s,\ell,j}\mid \beta_{s,\ell}, c^{\mathrm{seq}}_\ell \sim \Cat\!\big(\bpi(\beta_{s,\ell}, c^{\mathrm{seq}}_\ell)\big),\quad
-\bpi(\beta, c) = \mathrm{softmax}\!\big(W_m\,h_\theta(\beta, c) + b_m\big),
+\bpi(\beta, c) = \mathrm{softmax}\!\big(W_m\,h_\theta(\beta, c) + b_m\big).
 \end{equation}
-with $h_\theta$ a small MLP. Without the sequence conditioning, the model would be forced to predict end motifs from methylation alone, which is identifiability-violating because end motifs at a fixed locus are determined first and foremost by the local sequence.
+Without sequence conditioning, the model would be forced to predict end motifs from methylation alone, which would be an identifiability problem because local sequence is the primary determinant of the motif.
 
-\paragraph{Negative-Binomial coverage.} Coverage $n^{\mathrm{frag}}_{s,\ell}$ at locus $\ell$ depends on GC content, mappability, and methylation through fragmentation bias:
+\paragraph{Negative-Binomial coverage.} Coverage $n^{\mathrm{frag}}_{s,\ell}$ at locus $\ell$ depends on GC content, mappability, and methylation through fragmentation bias. We use a mean-dispersion parameterization
 \begin{equation}
-n^{\mathrm{frag}}_{s,\ell}\mid \beta_{s,\ell}, \mathrm{GC}_\ell, \mathrm{map}_\ell \sim \NB\!\big(r_\ell,\,p(\beta_{s,\ell},\mathrm{GC}_\ell,\mathrm{map}_\ell)\big),
+n^{\mathrm{frag}}_{s,\ell}\mid \beta_{s,\ell}, \mathrm{GC}_\ell, \mathrm{map}_\ell \sim \NB\!\big(r_\ell,\mu_{s,\ell}^{\mathrm{cov}}\big),
+\label{eq:nb}
 \end{equation}
-with $r_\ell=\exp(\alpha_r\,\mathrm{GC}_\ell+\beta_r\,\mathrm{map}_\ell+\gamma_r)$ shared across loci through the parameters $(\alpha_r,\beta_r,\gamma_r)$ trained jointly with the model. Although the coverage signal is weaker than the read evidence on its own, it helps disambiguate hyper-methylated CpG islands, where fragmentation is suppressed.
+where $\E[n^{\mathrm{frag}}_{s,\ell}]=\mu_{s,\ell}^{\mathrm{cov}}$, $\Var(n^{\mathrm{frag}}_{s,\ell})=\mu_{s,\ell}^{\mathrm{cov}}+(\mu_{s,\ell}^{\mathrm{cov}})^2/r_\ell$, and
+\begin{equation}
+\log\mu_{s,\ell}^{\mathrm{cov}}=a_0+a_\beta\beta_{s,\ell}+a_{\mathrm{GC}}\mathrm{GC}_\ell+a_{\mathrm{map}}\mathrm{map}_\ell.
+\end{equation}
+The dispersion $r_\ell>0$ may be shared, locus-specific, or regressed on locus covariates. Although coverage is weaker than direct read evidence, it can help disambiguate regions where fragmentation is methylation-dependent.
 
 \subsection{Joint distribution}
-The full joint, in the per-fragment-CpG Bernoulli form, is
+The full joint, in the direct-call Bernoulli form, is
 \begin{align}
-p(\bm{\mu}^{\mathrm{pop}},\bdelta,\bbeta,F,\bm{y})
+p(\bm{\mu}^{\mathrm{pop}},\bdelta,\bm\eta,\mathcal{O})
 =\;& \prod_\ell p(\mu^{\mathrm{pop}}_\ell)\,
      \prod_s p(\delta_s)\,
      \prod_{s,\ell} p(\eta_{s,\ell}\mid\mu^{\mathrm{pop}}_\ell,\delta_s)\nonumber\\
@@ -64,28 +73,39 @@ p(\bm{\mu}^{\mathrm{pop}},\bdelta,\bbeta,F,\bm{y})
    \prod_{s,\ell} p(n^{\mathrm{frag}}_{s,\ell}\mid\beta_{s,\ell}, \mathrm{GC}_\ell,\mathrm{map}_\ell).
 \label{eq:joint}
 \end{align}
-The Beta-Binomial aggregate form is obtained by replacing the inner Bernoulli product with the single Beta-Binomial term \eqref{eq:bb}.
+The Beta-Binomial aggregate form is obtained by replacing the inner Bernoulli product with the single Beta-Binomial term \eqref{eq:bb}. If only a subset of modalities is available, the corresponding products are omitted.
 
-\paragraph{Choice of likelihood form.} We use the Beta-Binomial pseudo-likelihood \eqref{eq:bb} when per-CpG calls are themselves the output of a separate classifier whose uncertainty we wish to absorb (the FinaleMe-style regime), and the per-fragment-CpG Bernoulli \eqref{eq:bern} when per-CpG calls are direct (the nanopore or bisulfite regime). Both forms yield the same hierarchical structure on $\eta_{s,\ell}$ and differ only in the reconstruction term of the ELBO.
+\paragraph{Choice of likelihood form.} We use the Beta-Binomial pseudo-likelihood \eqref{eq:bb} when per-CpG calls are themselves the output of a separate classifier or validation assay whose uncertainty we wish to absorb, and the Bernoulli form \eqref{eq:bern} when per-CpG calls are direct. Both forms yield the same hierarchy on $\eta_{s,\ell}$ and differ only in the reconstruction term of the ELBO.
 
 \subsection{Prior choice}
-The hyperparameters $(\mu_0,\tau_0,\sigma_\delta,\sigma_\eta,\kappa)$ admit principled defaults but should be set from data when possible. We use $\mu_0=0$ and $\tau_0=2.0$ as a broad logit-scale prior covering the entire $\beta\in(0,1)$ range. The concentration $\kappa$ controls the effective sample size of the Beta-Binomial relative to a Binomial; we recommend an empirical-Bayes setting fitted from the variance of $n^m/n^{\mathrm{cpg}}$ across replicates of the same sample. The standard deviations $\sigma_\delta$ and $\sigma_\eta$ can be estimated by empirical Bayes from a held-out methylation-array dataset by fitting a one-way Gaussian random-effects model on logit-$\beta$ and reading off the inter-sample and inter-replicate variance components. Default values used in our experiments are reported in Appendix~\ref{app:hparams}.
+The hyperparameters $(\mu_0,\tau_0,\sigma_\delta,\sigma_\eta,\kappa)$ admit principled defaults but should be set from data when possible. We use $\mu_0=0$ and $\tau_0=2.0$ as a broad logit-scale prior covering most of the $\beta\in(0,1)$ range. The concentration $\kappa$ controls the effective sample size of the Beta-Binomial relative to a Binomial; an empirical-Bayes setting can be fitted from replicate variance when replicate methylation measurements are available. The standard deviations $\sigma_\delta$ and $\sigma_\eta$ can be estimated by empirical Bayes from a held-out methylation-array dataset by fitting a one-way Gaussian random-effects model on logit-$\beta$. Full-model defaults and simplified-harness values are separated in Appendix~\ref{app:hparams}.
 
-\begin{figure}[t]
+
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}[node distance=1.4cm, every node/.style={font=\small}]
-  \node[latent] (mu0) {$\mu_0,\tau_0$};
-  \node[latent, right=2.2cm of mu0] (mupop) {$\mu^{\mathrm{pop}}_\ell$};
-  \node[latent, right=2.2cm of mupop] (eta) {$\eta_{s,\ell}$};
-  \node[latent, above=1.0cm of eta] (delta) {$\delta_s$};
-  \node[obs, right=2.0cm of eta] (F) {$F_{s,\ell,j}$};
-  \edge {mu0} {mupop}; \edge {mupop} {eta}; \edge {delta} {eta}; \edge {eta} {F};
-  \plate {pl} {(mupop)} {$L$};
-  \plate {ps} {(delta)} {$S$};
-  \plate {pf} {(F)} {$n^{\mathrm{frag}}_{s,\ell}$};
-  \plate {psl} {(eta)(F)(pf)} {$S\times L$};
+\begin{tikzpicture}[
+  node distance=1.4cm,
+  every node/.style={font=\small},
+  latentnode/.style={draw,circle,minimum size=8mm,align=center},
+  obsnode/.style={draw,rectangle,rounded corners,minimum height=7mm,align=center},
+  arr/.style={-Latex}
+]
+  \node[latentnode] (mu0) {$\mu_0,\tau_0$};
+  \node[latentnode, right=2.0cm of mu0] (mupop) {$\mu^{\mathrm{pop}}_\ell$};
+  \node[latentnode, right=2.0cm of mupop] (eta) {$\eta_{s,\ell}$};
+  \node[latentnode, above=1.0cm of eta] (delta) {$\delta_s$};
+  \node[obsnode, right=2.0cm of eta] (obs) {$\mathcal{O}_{s,\ell}$};
+  \draw[arr] (mu0) -- (mupop);
+  \draw[arr] (mupop) -- (eta);
+  \draw[arr] (delta) -- (eta);
+  \draw[arr] (eta) -- (obs);
+  \node[draw,dashed,fit=(mupop),inner sep=8pt,label=below:$L$] {};
+  \node[draw,dashed,fit=(delta),inner sep=8pt,label=above:$S$] {};
+  \node[draw,dashed,fit=(eta)(obs),inner sep=10pt,label=below:$S\times L$] {};
 \end{tikzpicture}
-\caption{Plate diagram of the HAVI-Methyl generative model. Population locus latents $\mu^{\mathrm{pop}}_\ell$ and per-sample shifts $\delta_s$ combine into $\eta_{s,\ell}=\logit\beta_{s,\ell}$, which generates the bag of fragments $F_{s,\ell,j}$ via Bernoulli (or Beta-Binomial), Categorical, and Negative-Binomial likelihoods. Sample shifts are constrained to sum to zero, eq.~\eqref{eq:sumzero}.}
+\caption{Plate diagram of the HAVI-Methyl hierarchy. Population locus latents $\mu^{\mathrm{pop}}_\ell$ and per-sample shifts $\delta_s$ combine into $\eta_{s,\ell}=\logit\beta_{s,\ell}$, which generates the available observation modalities $\mathcal{O}_{s,\ell}$ through the selected Bernoulli, Beta-Binomial, Categorical, and Negative-Binomial terms. Fragment bags $F_{s,\ell}$ are also used by the amortized recognition model.}
+\label{fig:plate}
 \end{figure}
+
 
 % ============================================================

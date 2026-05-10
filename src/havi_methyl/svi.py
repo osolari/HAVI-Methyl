@@ -175,6 +175,103 @@ def fit_svi_simplified(
     return state
 
 
+def fit_svi_full(
+    pred_beta: NDArray[np.float64],
+    n_frag: NDArray[np.float64],
+    n_iter: int = 30,
+    batch_samples: int | None = None,
+    batch_loci: int | None = None,
+    rho_exponent: float = RHO_EXPONENT,
+    sigma_pop: float = TAU_0,
+    sigma_delta: float = SIGMA_DELTA,
+    sigma_eta: float = SIGMA_ETA,
+    rng: int | np.random.Generator | None = None,
+) -> SVIState:
+    """Mini-batch SVI with Robbins-Monro natural-gradient step sizes (Sec. 6).
+
+    Differs from ``fit_svi_simplified`` in three ways:
+      1. Sub-samples ``B_s`` samples and ``B_l`` loci uniformly at each step
+         (Sec. 5.6 plate rescaling).
+      2. Uses a Robbins-Monro step ``rho_t = (t+1)^{-rho_exponent}`` for the
+         population/sample-shift updates rather than full overwrites; this
+         is the surrogate-natural-gradient step of eq.~\\ref{eq:nat-update}.
+      3. Tracks a global recentering residual every iteration so the
+         sum-to-zero constraint is enforced *globally* rather than within a
+         mini-batch (App. A correction A2).
+
+    Returns the same ``SVIState`` as the simplified loop. Numbers from this
+    routine are **not** the canonical Sec. 11 numbers — those still come from
+    ``fit_svi_simplified``. This is the IMPL-05 path that future real-data
+    runs should adopt.
+    """
+    from havi_methyl.utils import get_rng
+
+    pred_beta = np.asarray(pred_beta, dtype=np.float64)
+    n_frag = np.asarray(n_frag, dtype=np.float64)
+    S, L = pred_beta.shape
+    bs = S if batch_samples is None else min(batch_samples, S)
+    bl = L if batch_loci is None else min(batch_loci, L)
+    eta_obs_full = safe_logit(np.clip(pred_beta, 1e-2, 1 - 1e-2))
+    obs_prec_full = logit_observation_precision(pred_beta, n_frag)
+    gen = get_rng(rng)
+
+    state = SVIState(
+        population=PopulationLayer.initialize(L, prior_mean=0.0, prior_var=sigma_pop**2),
+        sample_shift=SampleShiftLayer.initialize(S, prior_var=sigma_delta**2),
+    )
+    for t in range(n_iter):
+        sample_idx = gen.choice(S, size=bs, replace=False)
+        loci_idx = gen.choice(L, size=bl, replace=False)
+        eta_batch = eta_obs_full[np.ix_(sample_idx, loci_idx)]
+        prec_batch = obs_prec_full[np.ix_(sample_idx, loci_idx)]
+        rho = robbins_monro_step(t, exponent=rho_exponent)
+
+        # Population update on the locus mini-batch.
+        weighted = prec_batch * (eta_batch - state.sample_shift.mean[sample_idx][:, None])
+        num = weighted.sum(axis=0)
+        den = prec_batch.sum(axis=0)
+        prior_prec = 1.0 / state.population.prior_var
+        new_mean_l = (num + prior_prec * state.population.prior_mean) / (den + prior_prec)
+        new_var_l = 1.0 / (den + prior_prec)
+        state.population.mean[loci_idx] = (1.0 - rho) * state.population.mean[
+            loci_idx
+        ] + rho * new_mean_l
+        state.population.var[loci_idx] = (1.0 - rho) * state.population.var[
+            loci_idx
+        ] + rho * new_var_l
+
+        # Sample shift update on the sample mini-batch.
+        weighted_s = prec_batch * (eta_batch - state.population.mean[loci_idx][None, :])
+        num_s = weighted_s.sum(axis=1)
+        den_s = prec_batch.sum(axis=1)
+        prior_prec_s = 1.0 / state.sample_shift.prior_var
+        new_mean_s = num_s / (den_s + prior_prec_s)
+        new_var_s = 1.0 / (den_s + prior_prec_s)
+        state.sample_shift.mean[sample_idx] = (1.0 - rho) * state.sample_shift.mean[
+            sample_idx
+        ] + rho * new_mean_s
+        state.sample_shift.var[sample_idx] = (1.0 - rho) * state.sample_shift.var[
+            sample_idx
+        ] + rho * new_var_s
+        # Global recentering: enforce sum-zero across all samples (App. A A2).
+        new_mu, new_delta = enforce_sum_zero_constraint(
+            state.population.mean, state.sample_shift.mean
+        )
+        state.population.mean = new_mu
+        state.sample_shift.mean = new_delta
+        # Surrogate ELBO logging on the full set.
+        prior_grid = state.population.mean[None, :] + state.sample_shift.mean[:, None]
+        sse = float((obs_prec_full * (eta_obs_full - prior_grid) ** 2).sum())
+        state.sse_history.append(sse)
+        state.elbo_history.append(-sse / max(S * L, 1))
+    return state
+
+
+def recentering_residual(state: SVIState) -> float:
+    """``sum_s delta_s`` — should be near zero after global recentering."""
+    return float(state.sample_shift.mean.sum())
+
+
 def predict_with_state(
     state: SVIState,
     pred_beta: NDArray[np.float64],

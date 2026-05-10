@@ -1,7 +1,7 @@
-configuration,VB_HMM,BetaBin,Hierarchy,Flow,VIB,Conformal
-1. VB-HMM only,yes,,,,,
-2. + Beta-Binomial likelihood,yes,yes,,,,
-3. + hierarchical SVI,yes,yes,yes,,,
-4. + amortized flow posterior,yes,yes,yes,yes,,
-5. + VIB de-confounding,yes,yes,yes,yes,yes,
-6. + conformal wrapper (full),yes,yes,yes,yes,yes,yes
+configuration,BetaBin,Hierarchy,Flow,VIB_mQTL,Conformal,status
+A0. Feature regression scaffold,,,,,,planned
+A1. + Beta-Binomial pseudo-likelihood,yes,,,,,planned
+A2. + hierarchical SVI,yes,yes,,,,planned
+A3. + amortized flow posterior,yes,yes,yes,,,planned
+A4. + leakage-control terms,yes,yes,yes,yes,,planned
+A5. + conformal wrapper (full),yes,yes,yes,yes,yes,planned

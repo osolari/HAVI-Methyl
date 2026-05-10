@@ -2,20 +2,32 @@
 
 **Hierarchical Amortized Variational Inference for Methylation Prediction from cfDNA Fragmentomics.**
 
-HAVI-Methyl replaces FinaleMe's per-sample binary HMM with a hierarchical
-Bayesian model that quantifies uncertainty, pools statistical strength
-across samples, de-confounds the prior, and trains end-to-end with the
-tissue-of-origin head — see `docs/report/main.pdf` for the full manuscript.
+HAVI-Methyl proposes a hierarchical Bayesian successor to FinaleMe's
+per-sample binary HMM that quantifies uncertainty, pools statistical
+strength across samples, de-confounds the prior, and trains end-to-end with
+the tissue-of-origin head — see `docs/report/main.pdf` for the full
+manuscript and `docs/report/CODING_AGENT_HANDOFF.md` for the implementation
+roadmap.
 
-This repository contains:
+This repository ships the **released simplified harness** described in
+Sec. 11 of the manuscript: an empirical-Bayes Gaussian-posterior variant
+that exercises the hierarchy on synthetic data. The full Set Transformer +
+normalizing-flow + conformal + Dirichlet-ToO architecture is preserved as a
+planned implementation target — see [`IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md).
 
-- The full Python package (`src/havi_methyl/`) implementing every algorithm,
-  theorem, and formula in the report.
-- A test suite (`tests/`) verifying the theoretical claims empirically.
-- Figure / table / benchmark scripts (`scripts/`) that regenerate every
-  numeric and visual artifact in the manuscript.
-- Tutorial notebooks (`notebooks/`) walking through the simulator,
-  inference, and calibration.
+Repository layout:
+
+- `src/havi_methyl/` — Python package: closed-form distributions, ELBO,
+  simplified SVI, baseline classifiers, calibration / identifiability /
+  tissue helpers, and theoretical-bound utilities.
+- `tests/` — pytest suite verifying the theoretical claims empirically.
+- `scripts/` — figure / table / benchmark scripts. `bench_synth_recovery.py`
+  is the canonical pipeline run; every figure and table downstream reads
+  from `outputs/results.json` and `outputs/plot_data.npz` (IMPL-10 in
+  `docs/report/CODING_AGENT_HANDOFF.md`).
+- `notebooks/` — tutorial notebooks for simulator / inference / calibration.
+- `docs/report/` — the manuscript, its TeX sources, and `code/run_experiments.py`,
+  the standalone deliverable harness.
 
 ## Installation
 
@@ -70,11 +82,16 @@ Every script accepts `--seed` (default `20260429`, the seed used for the
 numbers reported in the manuscript) and `--fast`. Output:
 
 - `outputs/figures/` — `recovery_scatter.{png,pdf}`, `calibration.{png,pdf}`,
-  `elbo_trajectory.{png,pdf}` (Sec. 11). PDFs are mirrored into
+  `elbo_trajectory.{png,pdf}` (Sec. 11). PDFs and PNGs are mirrored into
   `docs/report/figures/` so the LaTeX build can find them.
-- `outputs/tables/` — every table in the manuscript as CSV.
-- `outputs/results.json` — the JSON file that backs the numbers in
-  Sec. 11 and `docs/report/code/results.json`.
+- `outputs/tables/` — every table in the manuscript as CSV (mirrored to
+  `docs/report/tables/`).
+- `outputs/results.json` — the JSON file that backs the numbers in Sec. 11
+  (mirrored to `docs/report/results.json` and
+  `docs/report/code/results.json`).
+- `outputs/plot_data.npz` — per-coverage true / pred / interval / surrogate
+  arrays consumed by the figure scripts. Regenerated only by
+  `scripts/bench_synth_recovery.py`.
 
 ## Layout
 

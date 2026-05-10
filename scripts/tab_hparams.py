@@ -1,8 +1,11 @@
-"""Regenerate Appendix~F hyperparameter table from ``havi_methyl.constants``.
+"""Regenerate Appendix~F hyperparameter table.
 
-This is the canonical source: the LaTeX table in App. F documents these
-defaults; the CSV here re-extracts them so the LaTeX and library cannot
-disagree.
+Schema matches ``docs/report/tables/tab_hparams.csv``: each row separates the
+full-model planning value from the simplified-harness value used in Sec. 11
+so readers can tell which numbers are demonstrated and which are planning
+defaults. The ``simplified_harness_value`` column is the value actually used
+by the released code in ``src/havi_methyl/`` (or ``not implemented`` /
+``synthetic default`` where applicable).
 """
 
 from __future__ import annotations
@@ -17,148 +20,117 @@ def main() -> None:
     h = hm.DEFAULT_HPARAMS
 
     rows = [
-        # Model priors
         {
             "section": "Model priors",
             "symbol": "mu_0",
-            "value": h.mu_0,
+            "full_model_planning_value": h.mu_0,
+            "simplified_harness_value": "synthetic default",
             "description": "Population logit prior mean",
         },
         {
             "section": "Model priors",
             "symbol": "tau_0",
-            "value": h.tau_0,
+            "full_model_planning_value": h.tau_0,
+            "simplified_harness_value": "synthetic default",
             "description": "Population logit prior std",
         },
         {
             "section": "Model priors",
             "symbol": "sigma_delta",
-            "value": h.sigma_delta,
-            "description": "Sample-shift std",
+            "full_model_planning_value": h.sigma_delta,
+            "simplified_harness_value": "code-specific synthetic shift",
+            "description": "Sample shift std",
         },
         {
             "section": "Model priors",
             "symbol": "sigma_eta",
-            "value": h.sigma_eta,
-            "description": "Per-(s,l) latent std",
+            "full_model_planning_value": h.sigma_eta,
+            "simplified_harness_value": "empirical-Bayes proxy",
+            "description": "Local latent std",
         },
         {
             "section": "Model priors",
             "symbol": "kappa",
-            "value": h.kappa,
-            "description": "Beta-Binomial concentration",
+            "full_model_planning_value": h.kappa,
+            "simplified_harness_value": "not full Beta-Binomial",
+            "description": "Concentration",
         },
-        # Regularization
         {
             "section": "Regularization",
             "symbol": "beta_VIB",
-            "value": h.beta_vib,
+            "full_model_planning_value": "tune on validation",
+            "simplified_harness_value": "0.3 in stress test",
             "description": "VIB weight",
         },
         {
             "section": "Regularization",
             "symbol": "lambda_cf",
-            "value": h.lambda_cf,
-            "description": "Counterfactual invariance",
+            "full_model_planning_value": "tune on validation",
+            "simplified_harness_value": "not implemented",
+            "description": "Counterfactual penalty",
         },
         {
             "section": "Regularization",
             "symbol": "lambda_mQTL",
-            "value": h.lambda_mqtl,
+            "full_model_planning_value": "tune on validation",
+            "simplified_harness_value": "synthetic proxy",
             "description": "mQTL anchor weight",
         },
         {
             "section": "Regularization",
             "symbol": "lambda_ToO",
-            "value": h.lambda_too,
-            "description": "Tissue-of-origin weight",
+            "full_model_planning_value": "tune on validation",
+            "simplified_harness_value": "proxy deconvolution",
+            "description": "Tissue loss weight",
         },
-        # Architecture
         {
             "section": "Architecture",
             "symbol": "d_c",
-            "value": h.hidden_dim,
+            "full_model_planning_value": h.hidden_dim,
+            "simplified_harness_value": "not used directly",
             "description": "Encoder hidden dim",
         },
         {
             "section": "Architecture",
             "symbol": "L_e",
-            "value": h.isab_layers,
+            "full_model_planning_value": h.isab_layers,
+            "simplified_harness_value": "not implemented",
             "description": "ISAB layers",
         },
         {
             "section": "Architecture",
             "symbol": "m",
-            "value": h.inducing_points,
+            "full_model_planning_value": h.inducing_points,
+            "simplified_harness_value": "not implemented",
             "description": "ISAB inducing points",
         },
         {
             "section": "Architecture",
-            "symbol": "K (flow)",
-            "value": h.flow_blocks,
-            "description": "NSF stack depth",
+            "symbol": "K flow",
+            "full_model_planning_value": h.flow_blocks,
+            "simplified_harness_value": "Gaussian posterior",
+            "description": "NSF depth",
         },
-        {
-            "section": "Architecture",
-            "symbol": "NSF bins",
-            "value": h.nsf_bins,
-            "description": "Spline knots per block",
-        },
-        {
-            "section": "Architecture",
-            "symbol": "T_max",
-            "value": h.t_max_hdp,
-            "description": "HDP truncation level",
-        },
-        # Optimization
         {
             "section": "Optimization",
             "symbol": "LR encoder",
-            "value": h.lr_encoder,
+            "full_model_planning_value": h.lr_encoder,
+            "simplified_harness_value": "not applicable",
             "description": "AdamW",
-        },
-        {
-            "section": "Optimization",
-            "symbol": "weight decay",
-            "value": h.weight_decay,
-            "description": "AdamW",
-        },
-        {
-            "section": "Optimization",
-            "symbol": "rho_t exponent",
-            "value": h.rho_exponent,
-            "description": "Robbins-Monro",
         },
         {
             "section": "Optimization",
             "symbol": "|B_s|",
-            "value": h.batch_samples,
-            "description": "Sample mini-batch size",
+            "full_model_planning_value": h.batch_samples,
+            "simplified_harness_value": "full synthetic set",
+            "description": "Sample mini-batch",
         },
         {
             "section": "Optimization",
             "symbol": "|B_l|",
-            "value": h.batch_loci,
-            "description": "Locus mini-batch size",
-        },
-        {
-            "section": "Optimization",
-            "symbol": "g_clip",
-            "value": h.grad_clip,
-            "description": "Gradient clip norm",
-        },
-        # IWAE
-        {
-            "section": "IWAE",
-            "symbol": "K_IWAE_train",
-            "value": h.k_iwae_train,
-            "description": "Single-sample reparam",
-        },
-        {
-            "section": "IWAE",
-            "symbol": "K_IWAE_finetune",
-            "value": h.k_iwae_finetune,
-            "description": "DReG-IWAE",
+            "full_model_planning_value": h.batch_loci,
+            "simplified_harness_value": "L=300",
+            "description": "Locus mini-batch",
         },
     ]
     out = _common.write_csv("outputs/tables/tab_hparams.csv", rows)

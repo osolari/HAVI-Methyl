@@ -2,48 +2,43 @@
 \label{app:hparams}
 \begin{center}
 \small
-\begin{tabular}{lll}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llll}
 \toprule
-Symbol & Value & Description\\
+Symbol / setting & Full-model planning value & Simplified harness value & Description\\
 \midrule
-\multicolumn{3}{l}{\emph{Model priors}}\\
-$\mu_0,\tau_0$ & $0,2.0$ & Population logit prior (broad)\\
-$\sigma_\delta$ & $0.5$ & Sample-shift std\\
-$\sigma_\eta$ & $0.8$ & Per-(s,$\ell$) latent std\\
-$\kappa$ & $20$ & Beta-Binomial concentration\\
+\multicolumn{4}{l}{\emph{Model priors}}\\
+$\mu_0,\tau_0$ & $0,2.0$ & synthetic default & Population logit prior\\
+$\sigma_\delta$ & $0.5$ & code-specific synthetic shift & Sample-shift std\\
+$\sigma_\eta$ & $0.8$ & empirical-Bayes proxy & Per-(s,$\ell$) latent std\\
+$\kappa$ & $20$ & not full Beta-Binomial & Beta-Binomial concentration\\
 \midrule
-\multicolumn{3}{l}{\emph{Regularization weights}}\\
-$\beta_{\mathrm{VIB}}$ & $1.0$ & VIB weight\\
-$\lambda_{\mathrm{cf}}$ & $0.5$ & Counterfactual invariance weight\\
-$\lambda_{\mathrm{mQTL}}$ & $0.2$ & mQTL anchor weight\\
-$\lambda_{\mathrm{ToO}}$ & $1.0$ & Tissue-of-origin loss weight\\
+\multicolumn{4}{l}{\emph{Regularization weights}}\\
+$\beta_{\mathrm{VIB}}$ & tune on validation & $0.3$ in stress test & VIB weight\\
+$\lambda_{\mathrm{cf}}$ & tune on validation & not implemented & Counterfactual invariance\\
+$\lambda_{\mathrm{mQTL}}$ & tune on validation & synthetic proxy & mQTL anchor weight\\
+$\lambda_{\mathrm{ToO}}$ & tune on validation & proxy deconvolution & Tissue loss weight\\
 \midrule
-\multicolumn{3}{l}{\emph{Architecture}}\\
-$d_c$ & $128$ & Encoder hidden dim\\
-$L_e$ & $2$ & ISAB layers\\
-$m$ & $64$ & ISAB inducing points\\
-$K$ flow blocks & $6$ & NSF stack depth\\
-NSF bins & $8$ & Spline knots per block\\
-$T_{\max}$ & $64$ & HDP truncation level\\
+\multicolumn{4}{l}{\emph{Architecture}}\\
+$d_c$ & $128$ & not used directly & Encoder hidden dim\\
+$L_e$ & $2$ & not implemented & ISAB layers\\
+$m$ & $64$ & not implemented & ISAB inducing points\\
+$K$ flow blocks & $6$ & Gaussian posterior & NSF stack depth\\
+NSF bins & $8$ & not implemented & Spline knots\\
+$T_{\max}$ & $64$ & not implemented & HDP truncation\\
 \midrule
-\multicolumn{3}{l}{\emph{Optimization}}\\
-LR encoder & $10^{-3}$ & AdamW\\
-Weight decay & $10^{-4}$ & AdamW\\
-$\rho_t$ & $(t+1)^{-0.6}$ & Robbins-Monro for natural gradients\\
-$|B_s|$ & $8$ & Sample mini-batch size\\
-$|B_\ell|$ & $4096$ & Locus mini-batch size\\
-$g_{\mathrm{clip}}$ & $5.0$ & Gradient clip global norm\\
-$T_{\mathrm{anneal}}$ & $1$ epoch & KL annealing schedule\\
-LR warmup & $5\%$ of steps & Linear warmup\\
-LR decay & cosine & Post-warmup\\
+\multicolumn{4}{l}{\emph{Optimization}}\\
+LR encoder & $10^{-3}$ & not applicable & AdamW\\
+Weight decay & $10^{-4}$ & not applicable & AdamW\\
+$\rho_t$ & $(t+1)^{-0.6}$ & empirical-Bayes updates & Natural gradients\\
+$|B_s|$ & $8$ & full synthetic set & Sample mini-batch size\\
+$|B_\ell|$ & $4096$ & $L=300$ & Locus mini-batch size\\
+$g_{\mathrm{clip}}$ & $5.0$ & not applicable & Gradient clip\\
 \midrule
-\multicolumn{3}{l}{\emph{IWAE / fine-tuning}}\\
-$K_{\mathrm{IWAE}}^{\mathrm{train}}$ & $1$ & Single-sample reparam during main training\\
-$K_{\mathrm{IWAE}}^{\mathrm{finetune}}$ & $8$ & DReG-IWAE during fine-tuning\\
-\midrule
-\multicolumn{3}{l}{\emph{Data}}\\
-Train/val/test split & $70/15/15$ & By individual\\
-Held-out chromosomes & $\{1,22\}$ & For chromosome-stratified test\\
+\multicolumn{4}{l}{\emph{Data protocol}}\\
+Train/val/test split & by individual, plus chromosome holdout & synthetic single run & Benchmark split\\
+Held-out chromosomes & planned $\{1,22\}$ or equivalent & not applicable & Genomic holdout\\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{center}

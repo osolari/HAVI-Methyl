@@ -4,47 +4,48 @@
 \begin{algorithm}[H]
 \SetAlgoLined
 \DontPrintSemicolon
-\caption{HAVI-Methyl SVI training}
+\caption{HAVI-Methyl SVI training (full proposed implementation)}
 \label{alg:svi}
-\KwIn{Data $\{F_{s,\ell}\}$, hyperparameters $(\mu_0,\tau_0,\sigma_\delta,\sigma_\eta,\kappa,\beta_{\mathrm{VIB}},\lambda_{\mathrm{cf}},\lambda_{\mathrm{mQTL}},\lambda_{\mathrm{ToO}})$}
-\KwOut{Variational parameters $(\lambda,\nu,\phi)$}
-Initialize $\lambda_\ell\leftarrow$ empirical-Bayes from population atlas (or $(\mu_0,\tau_0^2)$ default); $\nu_s\leftarrow(0,\sigma_\delta^2)$; encoder $\phi$ from warm-start (Section~\ref{ssec:warmstart})\;
+\KwIn{Fragment bags $F_{s,\ell}$; available observations $\mathcal{O}_{s,\ell}$; optional mQTL anchors, counterfactual prior inputs, and tissue-reference panels; hyperparameters $(\mu_0,\tau_0,\sigma_\delta,\sigma_\eta,\kappa,\beta_{\mathrm{VIB}},\lambda_{\mathrm{cf}},\lambda_{\mathrm{mQTL}},\lambda_{\mathrm{ToO}})$}
+\KwOut{Variational parameters $(\lambda,\nu,\phi)$ and trained auxiliary heads}
+Initialize $\lambda_\ell\leftarrow$ empirical-Bayes from a non-test population atlas (or $(\mu_0,\tau_0^2)$ default); $\nu_s\leftarrow(0,\sigma_\delta^2)$; encoder $\phi$ from optional warm-start (Section~\ref{ssec:warmstart})\;
 \For{$t=1,\dots,T$}{
   Sample mini-batches of samples $B_s\subset\{1,\dots,S\}$ and loci $B_\ell\subset\{1,\dots,L\}$\;
-  Compute context $c_{s,\ell}$ via Set Transformer + sequence encoder for $(s,\ell)\in B_s\times B_\ell$\;
-  Sample $\epsilon\sim\N(0,1)$, $\eta_{s,\ell}=T_\phi(\epsilon;c_{s,\ell})$\;
-  Compute $\widehat{\elbo}$ from \eqref{eq:elbo-decomp} with mini-batch rescaling per Table~\ref{tab:rescale}\;
-  Apply KL annealing: weight the local KL by $\min(t/T_{\mathrm{anneal}},1)$ during the first $T_{\mathrm{anneal}}$ steps\;
-  Update $\phi\gets\phi+\rho_t\nabla_\phi\widehat{\elbo}$ via AdamW with gradient clipping at norm $g_{\mathrm{clip}}=5.0$\;
-  Update $\lambda_\ell\gets(1-\rho_t)\lambda_\ell+\rho_t\hat\lambda_\ell^{\mathrm{nat}}$ for $\ell\in B_\ell$ (approximate non-conjugate natural gradient \eqref{eq:nat-update})\;
+  Compute context $c_{s,\ell}$ via ISAB/PMA fragment encoder plus sequence encoder for $(s,\ell)\in B_s\times B_\ell$\;
+  Sample $\epsilon\sim\N(0,1)$ and set $\eta_{s,\ell}=T_\phi(\epsilon;c_{s,\ell})$\;
+  Compute $\widehat{\elbo}$ from \eqref{eq:elbo-decomp} with Table~\ref{tab:rescale} rescaling and available-modality masks\;
+  Add approved auxiliary terms: VIB penalty, counterfactual penalty, mQTL anchor penalty, and ToO likelihood when their inputs are present\;
+  Apply local-KL annealing by multiplying the local KL by $\min(t/T_{\mathrm{anneal}},1)$\;
+  Update neural parameters $\phi$ using AdamW learning rate $\alpha_\phi$ with gradient clipping at $g_{\mathrm{clip}}=5.0$\;
+  Update $\lambda_\ell\gets(1-\rho_t)\lambda_\ell+\rho_t\hat\lambda_\ell^{\mathrm{nat}}$ for $\ell\in B_\ell$ using the approximate moment-matched target \eqref{eq:nat-target}\;
   Update $\nu_s\gets(1-\rho_t)\nu_s+\rho_t\hat\nu_s^{\mathrm{nat}}$ for $s\in B_s$ analogously\;
-  Re-center: $\bar\delta\gets|B_s|^{-1}\sum_{s\in B_s}m_s^\delta$, $m_s^\delta\gets m_s^\delta-\bar\delta$, $m_\ell\gets m_\ell+\bar\delta$ to enforce \eqref{eq:sumzero}\;
+  Periodically or with a running global estimate, compute $\bar\delta\gets S^{-1}\sum_{s=1}^{S}m_s^\delta$, then set $m_s^\delta\gets m_s^\delta-\bar\delta$ for all tracked samples and $m_\ell\gets m_\ell+\bar\delta$ to maintain \eqref{eq:sumzero}\;
 }
-\Return{$(\lambda,\nu,\phi)$}\;
+\Return{$(\lambda,\nu,\phi)$ and auxiliary heads}\;
 \end{algorithm}
 
-\paragraph{Variance reduction.} We apply (i) reparameterization for all continuous latents, Gaussian and flow alike; (ii) sticking-the-landing \citep{roeder2017stl} for the encoder gradient, in which we stop gradient through $q_\phi$ in $\nabla_\phi\log q_\phi$ to remove the score-function term, which has zero expectation but nonzero variance; and (iii) a control variate $b(c)$ regressed on the context for the discrete coverage term. When the IWAE bound is in use ($K>1$), we additionally use the doubly-reparameterized gradient estimator of \citet{tucker2019dreg} on the encoder parameters to neutralize the IWAE signal-to-noise degradation of \citet{rainforth2018iwaeSNR}.
+\paragraph{Variance reduction.} We apply reparameterization for continuous latents, sticking-the-landing \citep{roeder2017stl} for the encoder gradient, and simple control variates for high-variance discrete or count terms. When the IWAE bound is in use ($K>1$), the full implementation should use the doubly-reparameterized gradient estimator of \citet{tucker2019dreg}. These variance-reduction components are part of the proposed full implementation; the released synthetic harness uses a simpler empirical-Bayes Gaussian posterior.
 
-\paragraph{Convergence diagnostics.} We monitor (i) the ELBO trajectory on a held-out locus set, (ii) posterior-predictive checks of $\beta_{s,\ell}$ against held-out WGBS, (iii) the effective sample size of the flow posterior under importance weights $w_i=p(F,\eta^{(i)})/q_\phi(\eta^{(i)}\mid c)$ via
+\paragraph{Convergence diagnostics.} We monitor (i) held-out surrogate ELBO or negative reconstruction loss, (ii) posterior-predictive checks of $\beta_{s,\ell}$ against held-out WGBS where available, (iii) effective sample size of importance weights
 \begin{equation}
 \mathrm{ESS} = \frac{\big(\sum_{i=1}^K w_i\big)^2}{\sum_{i=1}^K w_i^2},
 \end{equation}
-and (iv) the natural-parameter drift $\|\lambda_\ell^{(t)}-\lambda_\ell^{(t-1)}\|$.
+and (iv) natural-parameter drift $\|\lambda_\ell^{(t)}-\lambda_\ell^{(t-1)}\|$. Diagnostic thresholds should be set separately for the simplified synthetic harness and the full flow-based implementation.
 
 \subsection{Initialization}
-The naive initialization $\lambda_\ell=(\mu_0,\tau_0^2)$ for all $\ell$ is uninformative and produces slow early convergence because the encoder must move the population mean for every locus from zero. We strongly recommend empirical-Bayes initialization from a public methylation atlas: for each locus, set $m_\ell^{(0)}=\logit(\bar\beta^{\mathrm{atlas}}_\ell)$ and $v_\ell^{(0)}=\tau_0^2$, where $\bar\beta^{\mathrm{atlas}}_\ell$ is the mean methylation at locus $\ell$ across a public reference dataset such as the Loyfer-2023 atlas \citep{loyfer2023}. In our experiments this halves the number of training steps to convergence relative to the naive initialization.
+The naive initialization $\lambda_\ell=(\mu_0,\tau_0^2)$ for all $\ell$ is uninformative. We recommend empirical-Bayes initialization from a public methylation atlas only when that atlas is not part of the held-out evaluation target and its provenance is documented. For each locus, set $m_\ell^{(0)}=\logit(\bar\beta^{\mathrm{atlas}}_\ell)$ and $v_\ell^{(0)}=\tau_0^2$, with clipping near 0 and 1. The expected benefit is faster convergence, but the claimed speedup must be measured in the final real-data benchmark.
 
 \subsection{Warm-starting the encoder}
 \label{ssec:warmstart}
-Random initialization of the encoder produces a long warm-up phase during which the variational posterior is essentially the prior. We warm-start the Set Transformer and flow by training them as a per-locus regressor of $\beta$-values from fragment features against held-out methylation-array targets, before plugging the warm-started encoder into the SVI loop. The regression objective is the squared error between the encoder posterior mean of $\sigm(\eta_{s,\ell})$ and the array-measured $\beta$ at the same locus. After 1--2 epochs of supervised pre-training, the encoder has learned to map fragment features to a reasonable initial $\beta$ estimate, and SVI convergence is dramatically faster.
+Warm-starting trains the Set Transformer and flow as a per-locus regressor of $\beta$-values from fragment features against held-out methylation targets before SVI. The regression objective is squared error between the encoder posterior mean of $\sigm(\eta_{s,\ell})$ and the held-out target at the same locus. This is a recommended implementation step for the full model; the amount of convergence acceleration should be reported empirically rather than assumed.
 
 \subsection{Practical training concerns}
-We additionally apply (i) gradient clipping to a global norm of $5.0$ on all encoder parameters; (ii) freezing of HyenaDNA when used as the sequence encoder, training only the projection from the HyenaDNA embedding into our context space; (iii) KL annealing on the local-layer KL as in line 7 of Algorithm~\ref{alg:svi}, with $T_{\mathrm{anneal}}$ set to one full pass through the training data; and (iv) cosine learning-rate decay on the encoder learning rate after a linear warmup over the first $5\%$ of steps.
+The full implementation should apply gradient clipping, optional freezing of the DNA sequence encoder, KL annealing on the local-layer KL, cosine learning-rate decay after warmup, and leakage-control diagnostics for any atlas or prior input. The released synthetic harness uses a smaller empirical-Bayes variant, so its settings should not be read as full-model defaults.
 
 \subsection{Model hyperparameters}
-We use $\mu_0=0$ and $\tau_0=2.0$ (broad prior on the logit scale), $\sigma_\delta=0.5$, $\sigma_\eta=0.8$, and $\kappa=20$. The flow has $K=6$ NSF blocks with 8 bins per spline and hidden dim $128$. The Set Transformer has $L_e=2$ ISAB layers with 4 heads, hidden dim $128$, and $m=64$ inducing points. The sequence encoder is either a 6-layer dilated CNN with receptive field 2~kb or alternatively the frozen 256-dimensional embedding from HyenaDNA.
+Full-model planning defaults are $\mu_0=0$, $\tau_0=2.0$, $\sigma_\delta=0.5$, $\sigma_\eta=0.8$, and $\kappa=20$. The proposed flow has $K=6$ NSF blocks with 8 bins per spline and hidden dimension $128$. The Set Transformer uses $L_e=2$ ISAB layers with 4 heads, hidden dimension $128$, and $m=64$ inducing points. The sequence encoder is either a 6-layer dilated CNN with 2~kb receptive field or a frozen DNA-language-model embedding. Appendix~\ref{app:hparams} distinguishes these full-model defaults from the simplified-harness values.
 
 \subsection{Optimization hyperparameters}
-We use AdamW with learning rate $10^{-3}$ for the encoder and weight decay $10^{-4}$, and Robbins-Monro step sizes $\rho_t=(t+1)^{-0.6}$ for the natural-gradient layer. Mini-batches are $|B_s|=8$ samples and $|B_\ell|=4096$ loci per step. Gradient clipping is applied at norm $5.0$, IWAE sample count is $K=1$ during training and $K=8$ during fine-tuning, and KL annealing $T_{\mathrm{anneal}}$ is set to one epoch.
+We use AdamW learning rate $\alpha_\phi=10^{-3}$ for neural parameters and Robbins-Monro step sizes $\rho_t=(t+1)^{-0.6}$ for moment-matched natural-gradient layers. Mini-batches are planned at $|B_s|=8$ samples and $|B_\ell|=4096$ loci per step. Gradient clipping is applied at norm $5.0$, IWAE sample count is $K=1$ during main training and $K=8$ during fine-tuning, and KL annealing $T_{\mathrm{anneal}}$ is one epoch unless validation suggests otherwise.
 
 % ============================================================

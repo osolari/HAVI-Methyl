@@ -1,5 +1,5 @@
-dataset,S,mean_coverage,paired_WGBS,access
-Liu et al. 2024 (FinaleMe),80,~1x,yes,EGA
-Sun 2015,32,~35x WGBS,WGBS-only,SRA
-Moss 2018,25,methylation array,N/A,GEO
-Loyfer 2023,39 cell types from 205 samples,WGBS atlas,N/A,GSE186458
+dataset,scope,modality_or_coverage,paired_WGBS,verification_status
+Liu et al. 2024 (FinaleMe),80 planned comparison,low-pass WGS/WGBS,yes,verify controlled-access details
+Sun 2015,reference/planned,WGBS,WGBS-only,verify accession and sample count
+Moss 2018,reference/planned,methylation array or atlas,N/A,verify ground truth and accession
+Loyfer 2023,atlas-scale reference,WGBS atlas,N/A,verify accession and tissue labels

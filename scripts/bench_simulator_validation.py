@@ -1,5 +1,16 @@
-"""App. H validation: fragment-length distribution, end-motif top-4 frequency,
-and 10.4 bp periodicity peak (Sec. 10 / App. E targets).
+"""App. H simulator-validation table (Sec. 10 / App. E targets).
+
+Now (post IMPL-09) emits two CSVs:
+
+  - ``outputs/tables/bench_simulator_validation.csv`` — schema matching
+    ``docs/report/tables/bench_simulator_validation.csv`` with planning
+    targets and publication actions. Status remains ``preliminary`` because
+    the released harness still uses the compact simulator described in
+    ``docs/report/code/run_experiments.py``; the chromatin-aware simulator
+    is IMPL-09 in CODING_AGENT_HANDOFF.md.
+  - ``outputs/tables/bench_simulator_metrics.csv`` — the actually-computed
+    metrics from ``simulator_validation_metrics`` so future runs can compare
+    against the reference targets without re-running the simulator.
 """
 
 from __future__ import annotations
@@ -7,7 +18,6 @@ from __future__ import annotations
 import _common  # type: ignore
 import havi_methyl as hm
 import numpy as np
-from havi_methyl.simulator import make_motif_logits
 
 
 def main() -> None:
@@ -16,64 +26,70 @@ def main() -> None:
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
-    sim_params = hm.SimulatorParams()
-
-    # Length mode
-    L = hm.sample_fragment_lengths(args.n_frag, params=sim_params, rng=rng)
-    hist, edges = np.histogram(L, bins=np.arange(50, 800, 5), density=True)
-    centers = 0.5 * (edges[:-1] + edges[1:])
-    primary_mode = float(centers[hist.argmax()])
-    secondary_band = (320 <= centers) & (centers <= 350)
-    secondary_height = float(hist[secondary_band].max()) if secondary_band.any() else 0.0
-    tertiary_band = (450 <= centers) & (centers <= 520)
-    tertiary_height = float(hist[tertiary_band].max()) if tertiary_band.any() else 0.0
-
-    # Motif top-4 fraction
-    base = make_motif_logits(rng=rng)
-    motif_samples = hm.sample_end_motifs(args.n_frag, methylation=0.5, base_logits=base, rng=rng)
-    counts = np.bincount(motif_samples, minlength=256)
-    top4_frac = float(np.sort(counts)[-4:].sum() / counts.sum())
-
-    # 10.4 bp periodicity: empirical autocorrelation of length residuals modulo 10.4
-    period = float(np.median(L) % sim_params.periodicity_period)
+    metrics = hm.simulator_validation_metrics(n_frag=args.n_frag, rng=rng)
 
     rows = [
         {
-            "axis": "Fragment-length primary mode (bp)",
-            "simulated": primary_mode,
-            "expected": "~167",
-            "kolmogorov_smirnov_target": "<= 0.04 vs Snyder 2016",
+            "axis": "Fragment-length modes",
+            "current_status": "planning/preliminary",
+            "expected_output": "histogram and distance to reference",
+            "publication_action": "regenerate from final simulator",
         },
         {
-            "axis": "Fragment-length secondary peak height (per bp)",
-            "simulated": secondary_height,
-            "expected": "~0.005",
-            "kolmogorov_smirnov_target": "—",
+            "axis": "End-motif frequencies",
+            "current_status": "planning/preliminary",
+            "expected_output": "top 4-mers and KL/distance",
+            "publication_action": "regenerate from final simulator",
         },
         {
-            "axis": "Fragment-length tertiary peak height (per bp)",
-            "simulated": tertiary_height,
-            "expected": "~0.0009",
-            "kolmogorov_smirnov_target": "—",
+            "axis": "Periodicity spectrum",
+            "current_status": "planning/preliminary",
+            "expected_output": "autocorrelation peak near helical periodicity",
+            "publication_action": "regenerate from final simulator",
         },
         {
-            "axis": "Top-4 4-mer fraction at 5' cuts",
-            "simulated": top4_frac,
-            "expected": "~0.20",
-            "kolmogorov_smirnov_target": "KL <= 0.08 vs Zhou 2022",
-        },
-        {
-            "axis": "Median length mod 10.4 bp (~periodicity check)",
-            "simulated": period,
-            "expected": "—",
-            "kolmogorov_smirnov_target": "Periodicity peak at 10.42 ± 0.04",
+            "axis": "Methylation-conditioned cut bias",
+            "current_status": "planning/preliminary",
+            "expected_output": "stratified motif/cut-bias effect size",
+            "publication_action": "regenerate from final simulator",
         },
     ]
     out = _common.write_csv("outputs/tables/bench_simulator_validation.csv", rows)
     _common.copy_to_report_tables(out)
     print(f"Wrote {out}")
-    for r in rows:
-        print(f"  {r['axis']:<55s}  simulated={r['simulated']}")
+
+    metric_rows = [
+        {
+            "axis": "Fragment-length primary mode (bp)",
+            "value": f"{metrics['length_primary_mode_bp']:.2f}",
+            "target": "~167 (Snyder 2016)",
+        },
+        {
+            "axis": "Fragment-length 320-350 bp peak height (per bp)",
+            "value": f"{metrics['length_secondary_height']:.6f}",
+            "target": "~0.005",
+        },
+        {
+            "axis": "10.4 bp periodicity autocorrelation peak",
+            "value": f"{metrics['length_periodicity_amplitude']:.4f}",
+            "target": "non-trivially positive",
+        },
+        {
+            "axis": "Top-4 4-mer fraction at 5' cuts",
+            "value": f"{metrics['top4_motif_fraction']:.4f}",
+            "target": "~0.20 (Zhou 2022)",
+        },
+        {
+            "axis": "Methylation-conditioned GC effect size",
+            "value": f"{metrics['meth_cut_bias_effect_size']:.4f}",
+            "target": "non-zero (compact simulator: ~0.10)",
+        },
+    ]
+    metric_csv = _common.write_csv("outputs/tables/bench_simulator_metrics.csv", metric_rows)
+    _common.copy_to_report_tables(metric_csv)
+    print(f"Wrote {metric_csv}")
+    for r in metric_rows:
+        print(f"  {r['axis']:<55s}  value={r['value']}  target={r['target']}")
 
 
 if __name__ == "__main__":

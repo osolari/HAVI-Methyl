@@ -125,6 +125,40 @@ def hdp_truncated_pi(
     return stick_breaking(v)
 
 
+def leave_one_tissue_out_stress(
+    pi_true: NDArray[np.float64],
+    reference: NDArray[np.float64],
+    obs_beta: NDArray[np.float64],
+) -> dict[str, NDArray[np.float64]]:
+    """Sec. 9.3 LOO stress test: drop one reference column at a time.
+
+    For each held-out tissue ``k`` we re-deconvolve the observed ``beta``
+    using only the remaining ``T-1`` reference columns and report the RMSE
+    of the recovered ``pi`` against the true mixture (also masked to the
+    remaining tissues, renormalised). Returns the per-tissue RMSE plus the
+    average and worst values; an HDP truncation of size ``T_max`` is the
+    intended robust replacement (Sec. 9.2 / IMPL-08 completion criterion).
+    """
+    pi_true = np.asarray(pi_true, dtype=np.float64)
+    R = np.asarray(reference, dtype=np.float64)
+    Y = np.asarray(obs_beta, dtype=np.float64)
+    T = R.shape[0]
+    rmses = np.zeros(T)
+    for k in range(T):
+        keep = np.array([j for j in range(T) if j != k])
+        R_kept = R[keep]
+        pi_kept_true = pi_true[:, keep]
+        denom = pi_kept_true.sum(axis=1, keepdims=True)
+        pi_kept_true = np.where(denom > 0, pi_kept_true / np.maximum(denom, 1e-12), pi_kept_true)
+        pi_recovered = deconvolve_least_squares(Y, R_kept)
+        rmses[k] = float(np.sqrt(((pi_kept_true - pi_recovered) ** 2).mean()))
+    return {
+        "per_tissue_rmse": rmses,
+        "mean_rmse": float(rmses.mean()),
+        "worst_rmse": float(rmses.max()),
+    }
+
+
 @dataclass
 class TissueResults:
     """Bundle of tissue-fraction metrics."""

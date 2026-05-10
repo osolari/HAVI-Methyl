@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Run every figure / table / benchmark script in order.
 #
+# Order matters: scripts/bench_synth_recovery.py is the canonical pipeline
+# run that writes outputs/results.json + outputs/plot_data.npz; the figure
+# and several table scripts read from these artifacts (IMPL-10 in
+# docs/report/CODING_AGENT_HANDOFF.md). Running it first guarantees that
+# every downstream artifact is internally consistent.
+#
 # Flags:
 #   --fast        Use small S/L/iter for quick iteration (suffix --fast on
 #                 every child script). Default uses paper-scale config.
@@ -32,15 +38,15 @@ done
 if [[ -n "$SELECT" ]]; then
   RUN_FIG=0; RUN_TAB=0; RUN_BENCH=0
   case "$SELECT" in
-    figures)   RUN_FIG=1 ;;
-    tables)    RUN_TAB=1 ;;
+    figures)   RUN_FIG=1; RUN_BENCH=1 ;;   # figures need plot_data.npz
+    tables)    RUN_TAB=1; RUN_BENCH=1 ;;   # several tables read results.json
     benchmarks) RUN_BENCH=1 ;;
     all)       RUN_FIG=1; RUN_TAB=1; RUN_BENCH=1 ;;
   esac
 fi
 
 PYTHON=${PYTHON:-python3}
-mkdir -p outputs/figures outputs/tables docs/report/tables
+mkdir -p outputs/figures outputs/tables docs/report/tables docs/report/figures
 
 run_step() {
   echo
@@ -48,7 +54,22 @@ run_step() {
   $PYTHON "$@" $FAST
 }
 
+# Always run the canonical pipeline first if we need anything that depends on it.
+if [[ $RUN_BENCH -eq 1 || $RUN_FIG -eq 1 || $RUN_TAB -eq 1 ]]; then
+  echo "### Canonical pipeline (Sec. 11) ###"
+  run_step scripts/bench_synth_recovery.py
+fi
+
+if [[ $RUN_BENCH -eq 1 ]]; then
+  echo
+  echo "### Other benchmarks (Sec. 12, App. H) ###"
+  run_step scripts/bench_finaleme_realdata.py
+  run_step scripts/bench_simulator_validation.py
+  run_step scripts/bench_compute_budget.py
+fi
+
 if [[ $RUN_TAB -eq 1 ]]; then
+  echo
   echo "### Tables (Sec. 4.6, 5.6, 9, 11, 12, App. D-F) ###"
   run_step scripts/tab_vfamily.py
   run_step scripts/tab_rescale.py
@@ -69,15 +90,6 @@ if [[ $RUN_FIG -eq 1 ]]; then
   run_step scripts/fig_recovery_scatter.py
   run_step scripts/fig_calibration.py
   run_step scripts/fig_elbo_trajectory.py
-fi
-
-if [[ $RUN_BENCH -eq 1 ]]; then
-  echo
-  echo "### Benchmarks (Sec. 11, 12, App. H) ###"
-  run_step scripts/bench_synth_recovery.py
-  run_step scripts/bench_finaleme_realdata.py
-  run_step scripts/bench_simulator_validation.py
-  run_step scripts/bench_compute_budget.py
 fi
 
 echo

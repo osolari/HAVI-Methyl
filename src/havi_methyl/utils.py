@@ -118,6 +118,119 @@ def icc_2_1(values: NDArray[np.float64]) -> float:
     return float((ms_between_rows - ms_residual) / denom)
 
 
+def auc_threshold(true_beta: ArrayLike, pred_beta: ArrayLike, threshold: float = 0.5) -> float:
+    """ROC AUC for the binary task ``true_beta >= threshold`` (Sec. 12.2).
+
+    Uses the trapezoidal-approximation Mann-Whitney U statistic so we do not
+    depend on scikit-learn. Returns 0.5 if either class is empty.
+    """
+    t = np.asarray(true_beta, dtype=np.float64).flatten()
+    p = np.asarray(pred_beta, dtype=np.float64).flatten()
+    pos = p[t >= threshold]
+    neg = p[t < threshold]
+    if pos.size == 0 or neg.size == 0:
+        return 0.5
+    n_pos = len(pos)
+    n_neg = len(neg)
+    ranks = _rankdata(np.concatenate([pos, neg])) + 1.0
+    rank_pos_sum = ranks[:n_pos].sum()
+    u = rank_pos_sum - n_pos * (n_pos + 1) / 2.0
+    return float(u / (n_pos * n_neg))
+
+
+def call_dmrs(
+    beta_a: ArrayLike,
+    beta_b: ArrayLike,
+    delta_threshold: float = 0.25,
+    bh_q: float = 0.05,
+) -> NDArray[np.bool_]:
+    """Mark CpGs as DMRs where ``|mean(beta_a) - mean(beta_b)| >= delta_threshold``.
+
+    The Benjamini-Hochberg gating in the manuscript additionally requires
+    a per-locus q-value <= ``bh_q``; we approximate this with a Welch
+    t-test p-value plus BH correction, returning the binary DMR call mask.
+    Sec. 12.2 specifies the (Δβ ≥ 0.25, q ≤ 0.05) definition.
+    """
+    a = np.asarray(beta_a, dtype=np.float64)
+    b = np.asarray(beta_b, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[None, :]
+    if b.ndim == 1:
+        b = b[None, :]
+    mean_a = a.mean(axis=0)
+    mean_b = b.mean(axis=0)
+    delta = np.abs(mean_a - mean_b)
+    var_a = a.var(axis=0, ddof=1) if a.shape[0] > 1 else np.zeros_like(mean_a)
+    var_b = b.var(axis=0, ddof=1) if b.shape[0] > 1 else np.zeros_like(mean_b)
+    se = np.sqrt(var_a / max(a.shape[0], 1) + var_b / max(b.shape[0], 1)) + 1e-12
+    t_stat = (mean_a - mean_b) / se
+    # Two-sided large-sample p-value via the standard-normal approximation.
+    from scipy.special import erfc
+
+    p = erfc(np.abs(t_stat) / np.sqrt(2.0))
+    # Benjamini-Hochberg.
+    n = len(p)
+    order = np.argsort(p)
+    ranked = p[order] * n / np.arange(1, n + 1)
+    q = np.minimum.accumulate(ranked[::-1])[::-1]
+    q_full = np.empty_like(q)
+    q_full[order] = q
+    return (delta >= delta_threshold) & (q_full <= bh_q)
+
+
+def dmr_f1(
+    beta_truth_a: ArrayLike,
+    beta_truth_b: ArrayLike,
+    beta_pred_a: ArrayLike,
+    beta_pred_b: ArrayLike,
+    delta_threshold: float = 0.25,
+    bh_q: float = 0.05,
+) -> float:
+    """F1 of predicted vs. ground-truth DMR calls (Sec. 12.2 metric).
+
+    Both call_dmrs invocations use the same (Δβ, BH-q) thresholds. Returns
+    ``0.0`` when either call set is empty (precision and recall are
+    undefined; F1 conventionally maps to 0 in that case).
+    """
+    truth = call_dmrs(beta_truth_a, beta_truth_b, delta_threshold, bh_q)
+    pred = call_dmrs(beta_pred_a, beta_pred_b, delta_threshold, bh_q)
+    tp = int(np.sum(truth & pred))
+    fp = int(np.sum(~truth & pred))
+    fn = int(np.sum(truth & ~pred))
+    if tp == 0:
+        return 0.0
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return float(2 * precision * recall / (precision + recall))
+
+
+def interval_ece(
+    true: ArrayLike,
+    centers: ArrayLike,
+    widths: ArrayLike,
+    nominal: ArrayLike | None = None,
+) -> float:
+    """Expected calibration error of nominal-vs-empirical interval coverage.
+
+    ``widths`` is the 90% nominal width (matching the simplified-Gaussian
+    variant of Sec. 11). The reported ECE is the mean absolute gap between
+    nominal coverage levels in ``nominal`` and the empirically realised
+    coverage when intervals are scaled to that nominal level.
+    """
+    from havi_methyl.calibration import coverage_curve
+
+    if nominal is None:
+        nominal = np.linspace(0.05, 0.95, 19)
+    nominal = np.asarray(nominal, dtype=np.float64)
+    empirical = coverage_curve(
+        np.asarray(true, dtype=np.float64),
+        np.asarray(centers, dtype=np.float64),
+        np.asarray(widths, dtype=np.float64),
+        nominal,
+    )
+    return float(np.mean(np.abs(empirical - nominal)))
+
+
 # ---------- Validation helpers ----------
 
 

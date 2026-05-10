@@ -1,5 +1,5 @@
-family,expressiveness,cost_per_step,gradient_variance
-Mean-field Gaussian (logit scale),low (unimodal),low,low
-Mean-field Beta,low (unimodal),low,moderate (Beta reparam)
-"Normalizing flow (NSF, K blocks)",high (multi-modal),moderate (O(K)),low (pathwise)
-IWAE-tightened flow (K samples),high,high (Kx),moderate (DReG; Tucker 2019)
+family_or_objective,expressiveness,cost_per_step,gradient_behavior,status
+Mean-field Gaussian (logit scale),low,low,low variance,implemented in simplified harness
+Mean-field Beta,low,low,moderate,planned ablation
+Conditional scalar NSF flow,moderate-high,moderate,pathwise gradients,planned full model
+IWAE-tightened flow objective,tighter bound,high,DReG recommended,planned training objective

@@ -1,0 +1,6 @@
+axis,value,target
+Fragment-length primary mode (bp),167.50,~167 (Snyder 2016)
+Fragment-length 320-350 bp peak height (per bp),0.002858,~0.005
+10.4 bp periodicity autocorrelation peak,0.8380,non-trivially positive
+Top-4 4-mer fraction at 5' cuts,0.0778,~0.20 (Zhou 2022)
+Methylation-conditioned GC effect size,0.0906,non-zero (compact simulator: ~0.10)

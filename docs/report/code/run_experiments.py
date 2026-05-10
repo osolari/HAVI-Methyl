@@ -1,18 +1,22 @@
 """
 HAVI-Methyl synthetic recovery experiments.
 
-Implements:
-  1. A chromatin-aware cfDNA fragmentation simulator.
-  2. A FinaleMe-style binary HMM baseline (two states m/u, Gaussian
-     emissions on fragment features, Baum-Welch fitting).
-  3. A simplified HAVI-Methyl with a Gaussian variational posterior on
-     logit-beta, hierarchical population prior, and a Set-pooled MLP
-     encoder over fragment bags.
+This script implements the released simplified harness used for the
+fixed-seed synthetic results in the manuscript. It is intentionally not the
+full Set Transformer + normalizing-flow HAVI-Methyl implementation.
 
-Outputs: results.json (numeric metrics) and figures (PNG) for the paper.
+Implements:
+  1. A compact synthetic cfDNA-like fragment-feature simulator.
+  2. A FinaleMe-style binary Gaussian-emission baseline.
+  3. A simplified HAVI-Methyl variant with empirical-Bayes hierarchical
+     shrinkage and a Gaussian logit-scale posterior.
+
+Outputs: results.json and figures in the repository root, regardless of
+whether this script is launched from the root or from the code/ directory.
 """
 
 import json
+from pathlib import Path
 
 import matplotlib
 import numpy as np
@@ -20,6 +24,11 @@ from scipy.special import expit, logit
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+FIGURES_DIR = PROJECT_ROOT / "figures"
+ROOT_RESULTS = PROJECT_ROOT / "results.json"
+CODE_RESULTS = PROJECT_ROOT / "code" / "results.json"
 
 rng = np.random.default_rng(20260429)
 
@@ -193,12 +202,14 @@ def finaleme_bootstrap_intervals(bags, n, mu_m, mu_u, sd, n_boot=50, alpha=0.10)
 
 
 class HAVIMethyl:
-    """A reduced HAVI-Methyl: takes per-fragment classifier outputs from a
-    FinaleMe-style backend, aggregates to per-locus raw beta estimates,
-    then applies hierarchical Bayesian shrinkage with a population mean,
-    a per-sample shift, and an amortized encoder that produces a Gaussian
-    variational posterior on logit-beta. Posterior variance comes from
-    propagating fragment-bag uncertainty + hierarchical prior.
+    """Simplified HAVI-Methyl harness.
+
+    The class takes per-fragment classifier outputs from a FinaleMe-style
+    backend, aggregates them into per-locus raw beta estimates, and applies
+    empirical-Bayes hierarchical shrinkage with a population mean, per-sample
+    shifts, and Gaussian logit-scale posterior uncertainty. The full
+    publication model's Set Transformer, normalizing flow, conformal wrapper,
+    mQTL anchors, and Dirichlet tissue head are separate implementation tasks.
     """
 
     def __init__(
@@ -317,8 +328,11 @@ def metrics(true_beta, pred, lo=None, hi=None):
 
 
 def cpg_poor_subset(beta_pop, window=5):
-    """Identify loci in CpG-poor regions. We synthesize CpG density as the
-    derivative of beta_pop (less change -> CpG-poor)."""
+    """Identify a synthetic low-information subset.
+
+    The proxy uses low local methylation variability, not true CpG density.
+    Manuscript text therefore labels it as a low-information proxy.
+    """
     L = len(beta_pop)
     diffs = np.zeros(L)
     for i in range(L):
@@ -485,6 +499,7 @@ def run_all():
 
     # ----- Save figures -----
     print("\n=== Saving figures ===")
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(1, 4, figsize=(16, 4), sharey=True)
     for ax, cov in zip(axes, coverages, strict=False):
         d = plot_data[cov]
@@ -503,7 +518,7 @@ def run_all():
     axes[0].set_ylabel(r"Predicted $\beta$")
     axes[0].legend(loc="upper left", fontsize=8)
     plt.tight_layout()
-    plt.savefig("figures/recovery_scatter.png", dpi=150)
+    plt.savefig(FIGURES_DIR / "recovery_scatter.png", dpi=150)
     plt.close()
 
     # Calibration plot: nominal vs empirical coverage at 5x
@@ -545,23 +560,25 @@ def run_all():
     ax.set_title(rf"Calibration at {coverages[2]}$\times$")
     ax.legend()
     plt.tight_layout()
-    plt.savefig("figures/calibration.png", dpi=150)
+    plt.savefig(FIGURES_DIR / "calibration.png", dpi=150)
     plt.close()
 
     # ELBO trajectory (the last fitted)
     fig, ax = plt.subplots(figsize=(5, 3.5))
     ax.plot(elbo_history, color="#F26522")
     ax.set_xlabel("SVI iteration")
-    ax.set_ylabel("ELBO / pair")
-    ax.set_title(r"ELBO trajectory at $30\times$")
+    ax.set_ylabel("Surrogate objective / pair")
+    ax.set_title(r"Surrogate trajectory at $30\times$")
     plt.tight_layout()
-    plt.savefig("figures/elbo_trajectory.png", dpi=150)
+    plt.savefig(FIGURES_DIR / "elbo_trajectory.png", dpi=150)
     plt.close()
 
-    with open("results.json", "w") as f:
+    with ROOT_RESULTS.open("w") as f:
         json.dump(results, f, indent=2)
-    print("\nResults written to results.json")
-    print("Figures written to figures/")
+    with CODE_RESULTS.open("w") as f:
+        json.dump(results, f, indent=2)
+    print(f"\nResults written to {ROOT_RESULTS} and {CODE_RESULTS}")
+    print(f"Figures written to {FIGURES_DIR}/")
     return results
 
 

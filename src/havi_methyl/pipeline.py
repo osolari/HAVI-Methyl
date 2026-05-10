@@ -194,6 +194,142 @@ def run_tissue_recovery(
     )
 
 
+@dataclass
+class BenchmarkResult:
+    """Bundle of real-data-style benchmark metrics for one method.
+
+    Schema matches ``docs/report/tables/bench_finaleme_realdata.csv``: each
+    field is computed from the actually-run pipeline output, never invented.
+    """
+
+    pearson_r: float
+    spearman_r: float
+    auc_meth_at_0p5: float
+    ece_credible: float
+    icc_2_1: float
+    dmr_f1: float
+
+    def as_row(self, method: str, status: str) -> dict[str, object]:
+        return {
+            "method": method,
+            "pearson_r": self.pearson_r,
+            "spearman_r": self.spearman_r,
+            "auc_meth_at_0p5": self.auc_meth_at_0p5,
+            "ece_credible": self.ece_credible,
+            "icc_2_1": self.icc_2_1,
+            "dmr_f1": self.dmr_f1,
+            "_status": status,
+        }
+
+
+def _ablation_predict(
+    pred_baseline: np.ndarray,
+    n_frag: np.ndarray,
+    *,
+    use_hierarchy: bool,
+    use_full_iter: bool,
+) -> tuple[np.ndarray, np.ndarray]:
+    """HAVI-Methyl ablation toggles for the simplified harness.
+
+    - ``use_hierarchy=False``: skip SVI entirely, return the baseline.
+    - ``use_full_iter=False``: run a single SVI iteration (proxy for "no
+      flow" by limiting refinement; not a true flow ablation, which
+      requires the full implementation in IMPL-04).
+    """
+    from havi_methyl.svi import fit_svi_simplified, predict_with_state
+
+    if not use_hierarchy:
+        # Baseline pass-through with a small Gaussian uncertainty floor.
+        return pred_baseline.copy(), np.full_like(pred_baseline, 0.1)
+    n_iter = 10 if use_full_iter else 1
+    state = fit_svi_simplified(pred_baseline, n_frag, n_iter=n_iter)
+    return predict_with_state(state, pred_baseline, n_frag)
+
+
+def evaluate_real_data_benchmark(
+    bags: list[list],
+    n_frag: np.ndarray,
+    truth_beta: np.ndarray,
+    truth_split: tuple[np.ndarray, np.ndarray] | None = None,
+    rng: int | np.random.Generator | None = None,
+) -> dict[str, BenchmarkResult]:
+    """Run the FinaleMe-style benchmark protocol on a provided dataset.
+
+    ``bags``, ``n_frag``, and ``truth_beta`` should be the outputs of either
+    a real loader (Sec. 12.1) or the synthetic simulator (Sec. 11). The
+    function does **not** fabricate numbers — every returned value is the
+    metric of an actually-run prediction.
+
+    ``truth_split`` optionally supplies the per-sample group labels used for
+    the DMR call (e.g. case vs control); if absent, samples are split in
+    half by sample index.
+    """
+    from havi_methyl.baseline import finaleme_baseline_predict
+    from havi_methyl.utils import (
+        auc_threshold,
+        dmr_f1,
+        interval_ece,
+    )
+    from havi_methyl.utils import (
+        icc_2_1 as icc_metric,
+    )
+    from havi_methyl.utils import (
+        pearson_r as _r,
+    )
+    from havi_methyl.utils import (
+        spearman_r as _rho,
+    )
+
+    pred_baseline, fit = finaleme_baseline_predict(bags, n_frag)
+    z90 = 1.6448536269514722
+
+    # Group split for DMR calls.
+    S = truth_beta.shape[0]
+    if truth_split is None:
+        idx_a = np.arange(S // 2)
+        idx_b = np.arange(S // 2, S)
+    else:
+        idx_a, idx_b = truth_split
+
+    def _block(pred: np.ndarray, std: np.ndarray) -> BenchmarkResult:
+        widths = 2 * z90 * std
+        return BenchmarkResult(
+            pearson_r=float(_r(truth_beta, pred)),
+            spearman_r=float(_rho(truth_beta, pred)),
+            auc_meth_at_0p5=float(auc_threshold(truth_beta, pred, 0.5)),
+            ece_credible=float(interval_ece(truth_beta, pred, widths)),
+            icc_2_1=float(icc_metric(np.stack([truth_beta.flatten(), pred.flatten()], axis=1))),
+            dmr_f1=float(dmr_f1(truth_beta[idx_a], truth_beta[idx_b], pred[idx_a], pred[idx_b])),
+        )
+
+    results: dict[str, BenchmarkResult] = {}
+    # FinaleMe-style baseline.
+    from havi_methyl.baseline import finaleme_bootstrap_intervals
+
+    lo_b, hi_b = finaleme_bootstrap_intervals(
+        bags, fit, n_boot=20, alpha=0.10, rng=np.random.default_rng(0)
+    )
+    width_b = (hi_b - lo_b) / max(2 * z90, 1e-12)  # convert 90% width back to a 1-sigma proxy
+    results["FinaleMe-style HMM"] = _block(pred_baseline, width_b / 2.0 + 1e-3)
+
+    # HAVI-Methyl ablations.
+    pred_full, std_full = _ablation_predict(
+        pred_baseline, n_frag, use_hierarchy=True, use_full_iter=True
+    )
+    results["HAVI-Methyl simplified (full)"] = _block(pred_full, std_full)
+
+    pred_no_iter, std_no_iter = _ablation_predict(
+        pred_baseline, n_frag, use_hierarchy=True, use_full_iter=False
+    )
+    results["HAVI-Methyl simplified (no flow)"] = _block(pred_no_iter, std_no_iter)
+
+    pred_no_hier, std_no_hier = _ablation_predict(
+        pred_baseline, n_frag, use_hierarchy=False, use_full_iter=False
+    )
+    results["HAVI-Methyl simplified (no hierarchy)"] = _block(pred_no_hier, std_no_hier)
+    return results
+
+
 def run_synthetic_experiment(
     coverages: tuple[float, ...] = (0.1, 1.0, 5.0, 30.0),
     S: int = 12,
@@ -205,6 +341,11 @@ def run_synthetic_experiment(
 
     Returns a dict mirroring the structure of ``results.json`` plus a
     ``plot_data`` mapping coverage -> arrays for downstream figure scripts.
+
+    The identifiability stress test and tissue recovery use independent
+    sub-generators derived from the seed so their outputs do not depend on
+    how many coverages were run before them. This keeps the JSON internally
+    reproducible (IMPL-10 from ``CODING_AGENT_HANDOFF.md``).
     """
     gen = get_rng(rng)
     out: dict = {}
@@ -217,7 +358,11 @@ def run_synthetic_experiment(
             "elbo_final": result.elbo_final,
         }
         plot_data[cov] = result.plot_data
-    out["identifiability"] = run_identifiability_stress_test(S, L, 5.0, rng=gen).as_dict()
-    out["tissue"] = run_tissue_recovery(S, L, rng=gen).as_dict()
+    # Derive deterministic sub-generators so per-script regeneration matches.
+    ident_seed = int(gen.integers(0, 2**31 - 1))
+    tissue_seed = int(gen.integers(0, 2**31 - 1))
+    out["identifiability"] = run_identifiability_stress_test(S, L, 5.0, rng=ident_seed).as_dict()
+    out["tissue"] = run_tissue_recovery(S, L, rng=tissue_seed).as_dict()
     out["_plot_data"] = plot_data
+    out["_substream_seeds"] = {"identifiability": ident_seed, "tissue": tissue_seed}
     return out

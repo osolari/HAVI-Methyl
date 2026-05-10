@@ -1,75 +1,16 @@
 \section{Conjugate VB-HMM updates (baseline)}
 \label{app:vbhmm}
 
-This appendix derives the conjugate variational-Bayes coordinate-ascent updates for the FinaleMe-style HMM baseline. The baseline is the comparator throughout the paper, and a full derivation enables exact reproduction. The derivation follows \citet{beal2003}, Ch.~3.
+This appendix records the variational HMM baseline used as a methodological reference. It is a useful comparison because it resembles FinaleMe-style binary-state smoothing, but it is not a nested ablation of the full HAVI-Methyl architecture.
 
 \subsection*{Generative model}
-Per sample $s$, the baseline is a two-state HMM over loci ordered along the chromosome. State $z_{s,t}\in\{m,u\}$ is the binary methylation indicator at the $t$-th locus in sample $s$, and observations $y_{s,t}$ are the per-locus aggregated fragment-feature vectors used by FinaleMe (length, motif, GC, orientation). The model is
-\begin{align}
-\bm\pi_s &\sim \Dir(\bm\alpha_0), &&\text{(initial-state distribution prior)} \\
-A_{s,k\cdot} &\sim \Dir(\bm\alpha_A), && k\in\{m,u\},\;\text{(transition-row prior)}\\
-\theta_k &\sim \mathrm{NIW}(\mu_k^0,\kappa_k^0,\Psi_k^0,\nu_k^0), && k\in\{m,u\},\;\text{(emission-parameter prior)}\\
-z_{s,1} &\sim \Cat(\bm\pi_s),\\
-z_{s,t} &\sim \Cat(A_{s,z_{s,t-1},\cdot}),&&t\ge 2,\\
-y_{s,t}\mid z_{s,t}=k &\sim \N(\mu_k,\Sigma_k), && \theta_k=(\mu_k,\Sigma_k).
-\end{align}
-This is the exponential-family-conjugate form: Dirichlet priors on multinomial transitions, Normal-Inverse-Wishart on Gaussian emissions.
+Let $z_t\in\{m,u\}$ be a binary methylation state along loci and $y_{s,t}$ be a feature vector. A simple HMM has initial probabilities $\bpi$, transition matrix $A$, and Gaussian emissions $p(y_{s,t}\mid z_t=k)=\N(y_{s,t};\mu_k,\Sigma_k)$.
 
-\subsection*{Variational family}
-The mean-field family factorizes as
-\begin{equation}
-q(\bm\pi,\bm A,\bm\theta,\bm z) = \prod_s q(\bm\pi_s)\,\prod_{s,k} q(A_{s,k,\cdot})\,\prod_k q(\theta_k)\,\prod_s q(\bm z_s),
-\end{equation}
-where each factor takes its prior's exponential-family form: $q(\bm\pi_s)=\Dir(\bm\alpha_s)$, $q(A_{s,k,\cdot})=\Dir(\bm\alpha^A_{s,k})$, $q(\theta_k)=\mathrm{NIW}(\mu^q_k,\kappa^q_k,\Psi^q_k,\nu^q_k)$, and $q(\bm z_s)$ is computed by forward-backward.
-
-\subsection*{Coordinate-ascent updates}
-
-\paragraph{State posterior $q(\bm z_s)$ via forward-backward.} Given the current $q(\bm\pi_s)$, $q(A_s)$, $q(\bm\theta)$, the optimal $q(\bm z_s)$ in the mean-field form is the standard HMM forward-backward marginals over states, with effective parameters that are the geometric expectations of the variational distributions:
-\begin{align}
-\tilde\pi_{s,k} &= \exp\E_q[\log\pi_{s,k}] = \exp\!\big(\psi(\alpha_{s,k}) - \psi(\textstyle\sum_{k'}\alpha_{s,k'})\big),\\
-\tilde A_{s,k,k'} &= \exp\E_q[\log A_{s,k,k'}] = \exp\!\big(\psi(\alpha^A_{s,k,k'}) - \psi(\textstyle\sum_{j}\alpha^A_{s,k,j})\big),\\
-\tilde p(y_{s,t}\mid z_{s,t}=k) &= \exp\E_{q(\theta_k)}[\log\N(y_{s,t};\mu_k,\Sigma_k)],
-\end{align}
-where $\psi$ is the digamma function. The forward-backward recursions then compute
-\begin{align}
-\gamma_{s,t,k} &:= q(z_{s,t}=k\mid y_{s,1:T}),\\
-\xi_{s,t,k,k'} &:= q(z_{s,t-1}=k,z_{s,t}=k'\mid y_{s,1:T}),
-\end{align}
-with $\gamma_{s,t,k}$ obtained from the standard $\alpha_t\beta_t/\sum_k\alpha_T(k)$ recursion using the geometric-mean parameters above.
-
-\paragraph{Initial-state Dirichlet update.}
-\begin{equation}
-\alpha_{s,k} = \alpha_{0,k} + \gamma_{s,1,k}.
-\end{equation}
-
-\paragraph{Transition Dirichlet update.}
-\begin{equation}
-\alpha^A_{s,k,k'} = \alpha_{A,k,k'} + \sum_{t=2}^T \xi_{s,t,k,k'}.
-\end{equation}
-
-\paragraph{Emission NIW update.} Define the expected sufficient statistics for state $k$, pooled across samples:
-\begin{align}
-N_k &= \sum_{s,t} \gamma_{s,t,k},\\
-\bar y_k &= N_k^{-1}\sum_{s,t}\gamma_{s,t,k}\,y_{s,t},\\
-S_k &= \sum_{s,t}\gamma_{s,t,k}\,(y_{s,t}-\bar y_k)(y_{s,t}-\bar y_k)^\top.
-\end{align}
-The NIW updates are then the standard conjugate form (Beal 2003, eqs.~3.65--3.68):
-\begin{align}
-\kappa^q_k &= \kappa^0_k + N_k,\\
-\mu^q_k &= \frac{\kappa^0_k\mu^0_k + N_k\bar y_k}{\kappa^q_k},\\
-\nu^q_k &= \nu^0_k + N_k,\\
-\Psi^q_k &= \Psi^0_k + S_k + \frac{\kappa^0_k N_k}{\kappa^0_k + N_k}(\bar y_k - \mu^0_k)(\bar y_k - \mu^0_k)^\top.
-\end{align}
-
-\subsection*{ELBO formula}
-The variational lower bound for the VB-HMM baseline is
-\begin{equation}
-\elbo_{\mathrm{HMM}} = \E_q[\log p(\bm y,\bm z,\bm\pi,\bm A,\bm\theta)] - \E_q[\log q(\bm z,\bm\pi,\bm A,\bm\theta)],
-\end{equation}
-which decomposes into the forward-backward log-marginal $\sum_s\log\sum_k\alpha_{s,T}(k)$ (using the geometric-mean parameters), minus the Dirichlet KLs on $\bm\pi_s$ and $A_{s,k,\cdot}$, minus the NIW KL on $\theta_k$. Closed forms for each KL are standard.
+\subsection*{Variational family and updates}
+With Dirichlet priors on $\bpi$ and rows of $A$, and Normal-Wishart emission priors, coordinate-ascent VB alternates expected forward-backward state marginals with conjugate parameter updates. The expected transition counts update the Dirichlet parameters; expected state-weighted feature sums update the emission parameters. The ELBO is the expected complete-data log joint minus variational entropy.
 
 \subsection*{Connection to Baum-Welch}
-Maximum-likelihood EM (Baum-Welch) is the degenerate case of this coordinate ascent where the priors are flat ($\alpha_0=\alpha_A=1$, NIW degenerating to a flat prior) and posteriors collapse onto delta functions at the maximum-likelihood parameters. FinaleMe uses Baum-Welch per sample; the VB-HMM baseline used here therefore strictly generalizes FinaleMe by retaining the priors and reporting variational posteriors rather than point estimates. This makes the comparison HAVI-Methyl vs.\ VB-HMM a like-for-like comparison of two principled variational methods, rather than a Bayesian-vs.-frequentist comparison that would conflate two different sources of advantage.
+Replacing posterior distributions over parameters by point estimates recovers an EM/Baum-Welch-style baseline. This helps isolate the value of continuous latents, hierarchy, amortization, and calibration.
 
 \subsection*{Limitations of the baseline}
-Even with the conjugate VB upgrade, the baseline retains FinaleMe's structural limitations: binary state, no continuous $\beta\in[0,1]$, per-sample fitting with no cross-sample pooling of transitions or emissions, and Markov-chain dependence on chromosomal neighbors that fails in CpG-poor regions. The HAVI-Methyl design replaces all four limitations directly, which is the substantive gap between the baseline and the proposed model.
+The baseline remains binary, per-sample or weakly pooled, and does not provide calibrated continuous posterior intervals. Comparisons should therefore be framed as baseline comparisons rather than component-wise HAVI-Methyl ablations.
