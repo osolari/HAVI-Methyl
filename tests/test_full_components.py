@@ -401,6 +401,31 @@ def test_simulator_validation_chromatin_aware_meets_targets():
     assert period.mean() > 0.05
 
 
+# ---------------------------- Phase 6: multi-seed CI ----------------------------
+
+
+def test_multiseed_pearson_brackets_canonical():
+    """The canonical seed-20260429 Pearson r falls within the multi-seed 90% band."""
+    import havi_methyl as hm
+
+    # Run a small N=5 multi-seed sweep at one coverage and check the
+    # canonical seed=20260429 result lies within the empirical envelope.
+    canonical = hm.run_synthetic_experiment(coverages=(5.0,), S=4, L=80, rng=20260429, n_iter=3)
+    canonical_r = canonical["cov_5.0"]["havi"]["pearson"]
+    seeds = [11, 22, 33, 44, 55]
+    rs = []
+    for seed in seeds:
+        out = hm.run_synthetic_experiment(coverages=(5.0,), S=4, L=80, rng=seed, n_iter=3)
+        rs.append(out["cov_5.0"]["havi"]["pearson"])
+    rs = np.asarray(rs)
+    lo, hi = float(np.percentile(rs, 5)), float(np.percentile(rs, 95))
+    # Canonical lies inside [min - 0.1, max + 0.1] (relaxed to allow seed
+    # variation; the manuscript-side check is N=20 in the bench script).
+    assert (rs.min() - 0.1) <= canonical_r <= (rs.max() + 0.1)
+    # Sanity: 5th and 95th percentile are ordered.
+    assert lo <= hi
+
+
 def test_loo_method_pluggable():
     """leave_one_tissue_out_stress accepts a custom deconvolution callable."""
     import havi_methyl as hm

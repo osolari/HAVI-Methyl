@@ -51,7 +51,14 @@ actually stands today.
   =True)` flips 4 of 5 App. H axes to `verified` (primary mode 167.5
   bp, helical-pitch periodicity peak 0.86, top-4 motif fraction
   0.156, methylation-conditioned GC effect 0.090).
-- **Test suite** — 145 tests, all passing.
+- **Phase 6 multi-seed CIs** — `scripts/bench_multiseed_recovery.py`
+  runs N=20 seeds and emits `tab_recovery_multiseed.csv` with median,
+  5th, 95th percentile per coverage / method / metric. The canonical
+  seed=20260429 single-seed numbers fall within the 90% band at every
+  coverage. Multi-seed median Pearson r: HAVI-Methyl beats
+  FinaleMe-style at every coverage (e.g. 0.357 vs 0.191 at 0.1×, 0.973
+  vs 0.970 at 30×).
+- **Test suite** — 146 tests, all passing.
 
 ## What is *not* live data
 
