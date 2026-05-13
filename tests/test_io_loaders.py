@@ -98,37 +98,39 @@ def test_load_finaleme_dataset_parses_paired_samples(tmp_path: Path) -> None:
     panel_path = tmp_path / "panel.bed"
     panel_path.write_text("chr1\t100\t101\nchr1\t200\t201\n")
 
-    # Two samples, three fragments at locus 100, two at locus 200.
+    # cfDNA BED6 fragment records (no header; chrom, start, end, name, score, strand).
+    # sampleA: 2 fragments spanning [100,267) and [100,300) cover both loci;
+    # 1 fragment at [200,367) covers locus 1 only -> n = [2, 3].
     _write_text_gz(
         frag_dir / "sampleA.b37.tsv.gz",
-        "chrom\tstart\tend\tlength\tmotif\tgc\torient\tdist\n"
-        "chr1\t100\t267\t167\t12\t0.5\t1\t30\n"
-        "chr1\t100\t300\t200\t8\t0.6\t0\t40\n"
-        "chr1\t200\t367\t167\t44\t0.45\t1\t20\n",
+        "1\t100\t267\t.\t0\t+\n" "1\t100\t300\t.\t0\t-\n" "1\t200\t367\t.\t0\t+\n",
     )
     _write_text_gz(
         frag_dir / "sampleB.b37.tsv.gz",
-        "chrom\tstart\tend\tlength\tmotif\tgc\torient\tdist\n"
-        "chr1\t100\t267\t167\t14\t0.55\t0\t10\n"
-        "chr1\t200\t367\t167\t40\t0.50\t1\t25\n",
+        "1\t100\t267\t.\t0\t-\n" "1\t200\t367\t.\t0\t+\n",
     )
-    # WGBS truth (CG.strand.6plus2 columns: chrom start end strand beta meth total ...)
+    # WGBS truth (Liu 2024 8-col track form: chrom start end name score strand meth_pct coverage).
     _write_text_gz(
         meth_dir / "sampleA.aligned.duplicates_marked.cpg.filtered.sort.CG.strand.6plus2.bed.gz",
-        "chr1\t100\t101\t+\t0.6\t6\t10\textra\n" "chr1\t200\t201\t+\t0.4\t4\t10\textra\n",
+        "track name=sampleA type=bedDetail\n"
+        "1\t100\t101\t.\t0\t+\t60.0\t10\n"
+        "1\t200\t201\t.\t0\t+\t40.0\t10\n",
     )
     _write_text_gz(
         meth_dir / "sampleB.aligned.duplicates_marked.cpg.filtered.sort.CG.strand.6plus2.bed.gz",
-        "chr1\t100\t101\t+\t0.8\t8\t10\textra\n" "chr1\t200\t201\t+\t0.2\t2\t10\textra\n",
+        "track name=sampleB type=bedDetail\n"
+        "1\t100\t101\t.\t0\t+\t80.0\t10\n"
+        "1\t200\t201\t.\t0\t+\t20.0\t10\n",
     )
 
     ds = load_finaleme_dataset(root, locus_panel=panel_path)
     assert ds.beta_sample.shape == (2, 2)
     np.testing.assert_allclose(ds.beta_sample[0], [0.6, 0.4])
     np.testing.assert_allclose(ds.beta_sample[1], [0.8, 0.2])
-    # Fragment counts: sampleA has 2 frags at locus 0 + 1 at locus 1; sampleB has 1 + 1.
-    np.testing.assert_array_equal(ds.n[0], [2, 1])
-    np.testing.assert_array_equal(ds.n[1], [1, 1])
+    # Fragment counts via interval overlap (a fragment is binned into every
+    # locus it spans, not just the one its start matches).
+    np.testing.assert_array_equal(ds.n[0], [2, 3])
+    np.testing.assert_array_equal(ds.n[1], [1, 2])
 
 
 # ---------------------------- Roadmap WGBS WIG loader ----------------------------

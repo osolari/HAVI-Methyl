@@ -49,21 +49,26 @@ def _open_text(path: Path):
 
 def load_loyfer_atlas_matrix(
     path: str | Path,
-    locus_id_columns: tuple[str, ...] = ("chrom", "start", "end", "name"),
+    locus_id_columns: tuple[str, ...] = ("chrom", "chr", "start", "end", "name"),
     locus_subset: set[str] | None = None,
-    drop_columns: tuple[str, ...] = (),
+    drop_columns: tuple[str, ...] = ("startCpG", "endCpG", "target", "direction"),
 ) -> LoyferAtlas:
     """Load the precomputed Loyfer human methylome atlas TSV.
 
     The expected file is a tab-separated table whose first few columns
-    are locus identifiers (e.g. ``chrom start end name``) and remaining
-    columns are per-tissue or per-cell-type methylation fractions. This
-    layout matches ``ecd/data_resources/human_methylome_atlas/human_methylome_atlas.tsv``
-    and any other Loyfer-derived atlas table with the same shape.
+    are locus identifiers (e.g. ``chrom start end name`` or ``chr start
+    end startCpG endCpG target name direction``) and remaining columns
+    are per-tissue or per-cell-type methylation fractions. This layout
+    matches the published Loyfer/UXM_deconv panels
+    ``Atlas.U25.l4.hg38.tsv`` / ``Atlas.U250.l4.hg38.tsv`` as well as any
+    other Loyfer-derived atlas table with the same shape.
 
-    Tissue columns whose names appear in ``drop_columns`` are skipped.
-    If ``locus_subset`` is provided, only loci whose ``name`` is in the
-    set are kept.
+    ``locus_id_columns`` covers both the ``chrom`` and ``chr`` spellings
+    by default. ``drop_columns`` defaults to the wgbstools panel
+    metadata columns (``startCpG``, ``endCpG``, ``target``,
+    ``direction``) so they are not mistaken for tissue methylation
+    columns. If ``locus_subset`` is provided, only loci whose joined
+    ID is in the set are kept.
     """
     p = Path(path)
     rows: list[list[float]] = []
@@ -190,7 +195,7 @@ def load_loyfer_pat_directory(
 
     for child in sorted(p.iterdir()):
         name = child.name
-        if not name.endswith(".pat.gz"):
+        if not name.endswith(".pat.gz") or name.startswith("._"):
             continue
         tissue = _tissue_from_loyfer_filename(name)
         if tissue is None:

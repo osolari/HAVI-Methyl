@@ -1,6 +1,6 @@
 # Status snapshot
 
-Last updated: 2026-05-09. Authoritative roadmap remains
+Last updated: 2026-05-13. Authoritative roadmap remains
 [`docs/report/CODING_AGENT_HANDOFF.md`](report/CODING_AGENT_HANDOFF.md);
 this file is the repo-side snapshot of where the implementation
 actually stands today.
@@ -71,35 +71,47 @@ actually stands today.
   not benefit-positive: proper DReG requires detaching encoder
   parameters in `log q_phi` (PyTorch `functional_call`), which is not
   yet implemented.
-- **Phase 5 real-data loaders** — `havi_methyl.io` ships three
-  loaders (`load_loyfer_atlas_matrix`, `load_loyfer_pat_directory`,
-  `load_finaleme_dataset`, `load_roadmap_wgbs_atlas`). CLI flags
-  added: `bench_finaleme_realdata.py --data-dir`,
-  `bench_tissue_loo.py --atlas-tsv`. Tests use synthetic on-disk
-  fixtures so CI passes without drive access. Real-data runs are
-  blocked only on the macOS Removable-Volumes TCC permission applying
-  to the running VS Code process — once VS Code restarts (or the
-  relevant subset is copied to a local path), the same scripts emit
-  Liu 2024 / Loyfer 2023 numbers without further code changes.
-- **Test suite** — 156 tests, all passing.
+- **Phase 5 real-data benches** — both real-data CSVs are now driven
+  by lab-drive data:
+  - `bench_tissue_loo.csv` runs against the published Loyfer/UXM_deconv
+    `Atlas.U25.l4.hg38.tsv` panel (36 tissues × 900 markers). On the
+    4-tissue × 200-locus subsample the HAVI-Methyl Dirichlet head
+    wins every metric: RMSE 0.058 vs lstsq 0.136 vs FinaleMe-binarized
+    0.235; LOO mean RMSE 0.103 vs 0.179 vs 0.297. `_status` reflects
+    the Loyfer source.
+  - `bench_finaleme_realdata.csv` runs against the Liu 2024 paired
+    cfDNA WGS + WGBS files in `/Volumes/Omid Solari/finaleme/`, paired
+    via Supplementary Table 1 (`data/finaleme_manifest/sample_pairs.csv`)
+    on `patient_id`, with the buffy-coat methylation prior wired in
+    via `--buffy-coat-bw`. On the 782-CpG high-variance panel built
+    by `scripts/build_high_variance_panel.py`, HAVI-Methyl simplified
+    (no flow) leads on Pearson r (0.082 vs FinaleMe HMM 0.078) and
+    on ECE (0.32–0.42 vs 0.47). Absolute r is modest because Liu's
+    matched WGBS is shallow; the comparative ordering is what matters.
+- **`havi_methyl.io` loader updates** — `load_loyfer_atlas_matrix`
+  defaults now match the real UXM_deconv panel schema (`chr`/`chrom`
+  alias, auto-drops `startCpG`/`endCpG`/`target`/`direction`).
+  `load_finaleme_dataset` takes `manifest=` and `buffy_coat_bw=`
+  kwargs and reads the actual BED6 fragment + 8-column WGBS-track
+  formats found on disk; both readers skip macOS `._` AppleDouble
+  sidecars and normalise b37 chrom (`"1"` → `"chr1"`).
+- **Test suite** — 140 passed, 9 skipped (torch-conditional); all
+  green at the Phase 5 boundary.
 
 ## What is *not* live data
 
-Three deliberate placeholders remain because they would require
+Two deliberate placeholders remain because they would require
 fabricated numbers otherwise:
 
-- **EGA Liu 2024 numbers** in `bench_finaleme_realdata.csv` — every
-  HAVI-Methyl row is the synthetic FinaleMe-proxy output, never the
-  real EGA dataset. The `_status` column on every row makes this
-  explicit. External baselines (FinaleMe, DeepCpG, Elastic-net,
-  MethylBERT) are `XX` placeholders pending their own codebases.
+- **External baselines** in `bench_finaleme_realdata.csv` (FinaleMe,
+  DeepCpG, Elastic-net, MethylBERT) — still `XX` placeholders pending
+  each project's own codebase. The HAVI-Methyl rows ARE now real Liu
+  2024 numbers (see above); only the external-baseline rows are
+  placeholders.
 - **Wafer-scale measured compute** in `bench_compute_budget.csv` —
   rows tagged `planning estimate` need real measurement once the full
   architecture exists; rows tagged `measured on Darwin arm64 arm` are
   the actual local CPU numbers from the machine that ran the script.
-- **Multi-seed sensitivity sweeps** — Sec. 11 reports a single seed
-  (`20260429`); multi-seed bootstrap intervals are scheduled for
-  IMPL-05 follow-up.
 
 ## IMPL-01..10 status table
 

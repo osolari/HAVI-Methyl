@@ -63,6 +63,8 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
         locus_panel=args.locus_panel,
         max_samples=args.samples,
         max_loci=args.loci,
+        manifest=args.manifest,
+        buffy_coat_bw=args.buffy_coat_bw,
     )
     S, L = ds.beta_sample.shape
     print(f"Loaded {S} paired samples x {L} loci")
@@ -83,7 +85,9 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
     )
     status = (
         f"Liu 2024 (data-dir={args.data_dir}, n_samples={S}, n_loci={L}, "
-        f"locus_panel={args.locus_panel or 'default-grid'})"
+        f"locus_panel={args.locus_panel or 'default-grid'}, "
+        f"manifest={args.manifest or 'filename-stripping'}, "
+        f"buffy_coat_prior={'on' if args.buffy_coat_bw else 'off'})"
     )
     return results, ds.n, ds.beta_sample, status, {"S": S, "L": L}
 
@@ -108,6 +112,28 @@ def main() -> None:
         type=str,
         default=None,
         help="Optional BED file giving the panel of (chrom, start, end) loci to score.",
+    )
+    parser.add_argument(
+        "--manifest",
+        type=str,
+        default=None,
+        help=(
+            "Path to the Liu 2024 Supplementary Table 1 CSV pairing "
+            "WGS_library_id, WGBS_library_id, and patient_id. Required to "
+            "pair the on-disk frag_wgs/ and meth_wgbs/ samples on the lab "
+            "drive (filename-only stripping does not pair these)."
+        ),
+    )
+    parser.add_argument(
+        "--buffy-coat-bw",
+        type=str,
+        default=None,
+        help=(
+            "Path to wgbs_buffyCoat_jensen2015GB.methy.hg19.bw. When set, "
+            "each fragment gets an extra ``buffy_coat_prior`` feature equal "
+            "to the per-locus mean methylation in the buffy-coat reference, "
+            "matching FinaleMe's methylation-prior input."
+        ),
     )
     args = parser.parse_args()
 
