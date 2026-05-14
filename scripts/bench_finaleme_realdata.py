@@ -137,6 +137,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if not args.data_dir:
+        existing = "outputs/tables/bench_finaleme_realdata.csv"
+        try:
+            with open(existing) as f:
+                head = f.read(4096)
+            if "Liu 2024" in head:
+                print(
+                    f"Real-data CSV at {existing} already carries Liu 2024 numbers; "
+                    f"skipping synthetic-proxy overwrite. Re-run with --data-dir to refresh."
+                )
+                return
+        except FileNotFoundError:
+            pass
+
     if args.data_dir:
         results, _n, _beta, status, _ = _run_real_data(args)
     else:
