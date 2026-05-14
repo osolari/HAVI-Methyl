@@ -83,6 +83,33 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
         truth_split=(idx_a, idx_b),
         rng=rng,
     )
+
+    # Re-run predictions (cheap) to dump per-locus per-sample for the scatter
+    # figure. evaluate_real_data_benchmark returns metrics only; the
+    # underlying predictors are the same ones it calls internally.
+    from havi_methyl.baseline import finaleme_baseline_predict
+    from havi_methyl.pipeline import _ablation_predict
+
+    pred_baseline, _fit = finaleme_baseline_predict(ds.bags, ds.n)
+    pred_full, _ = _ablation_predict(pred_baseline, ds.n, use_hierarchy=True, use_full_iter=True)
+    pred_no_flow, _ = _ablation_predict(
+        pred_baseline, ds.n, use_hierarchy=True, use_full_iter=False
+    )
+    pred_no_hier, _ = _ablation_predict(
+        pred_baseline, ds.n, use_hierarchy=False, use_full_iter=False
+    )
+    pred_npz = "outputs/finaleme_realdata_predictions.npz"
+    np.savez(
+        pred_npz,
+        truth=ds.beta_sample,
+        pred_finaleme_hmm=pred_baseline,
+        pred_havi_full=pred_full,
+        pred_havi_no_flow=pred_no_flow,
+        pred_havi_no_hier=pred_no_hier,
+        n_frag=ds.n,
+    )
+    print(f"Wrote {pred_npz} for the per-locus scatter figure")
+
     status = (
         f"Liu 2024 (data-dir={args.data_dir}, n_samples={S}, n_loci={L}, "
         f"locus_panel={args.locus_panel or 'default-grid'}, "

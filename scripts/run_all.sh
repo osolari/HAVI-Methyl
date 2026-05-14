@@ -138,6 +138,19 @@ if [[ $RUN_FIG -eq 1 ]]; then
   run_step scripts/fig_recovery_scatter.py
   run_step scripts/fig_calibration.py
   run_step scripts/fig_elbo_trajectory.py
+  echo
+  echo "### Phase 5 real-data figures ###"
+  run_step scripts/fig_loyfer_loo_rmse.py
+  run_step scripts/fig_finaleme_paired_metrics.py
+  # The per-locus scatter requires the predictions npz, which only exists
+  # after a real-data run of bench_finaleme_realdata.py. Skip silently when
+  # absent so a fresh checkout without the lab drive still completes.
+  if [[ -f outputs/finaleme_realdata_predictions.npz ]]; then
+    run_step scripts/fig_finaleme_paired_scatter.py
+  else
+    echo
+    echo "=== scripts/fig_finaleme_paired_scatter.py === (skipped: outputs/finaleme_realdata_predictions.npz missing; re-run bench_finaleme_realdata.py with --data-dir to populate)"
+  fi
 fi
 
 echo
