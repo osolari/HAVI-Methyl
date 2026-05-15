@@ -87,6 +87,9 @@ if HAS_TORCH:
         # the small synthetic scales used in this repo.
         k_iwae: int = 1
         iwae_dreg: bool = False
+        # Compute device. "auto" picks cuda > mps > cpu. Any explicit string
+        # accepted by torch.device is also valid (e.g. "cuda:0", "cpu", "mps").
+        device: str = "auto"
 
     class _GaussianPosteriorHead(nn.Module):
         """Encoder context -> (mu, log_sigma) of the q(eta|c) Gaussian head."""
@@ -149,7 +152,15 @@ if HAS_TORCH:
         """
         cfg = config or TorchSVIConfig()
         torch.manual_seed(seed)
-        device = torch.device("cpu")
+        if cfg.device == "auto":
+            if torch.cuda.is_available():
+                device = torch.device("cuda")
+            elif torch.backends.mps.is_available():
+                device = torch.device("mps")
+            else:
+                device = torch.device("cpu")
+        else:
+            device = torch.device(cfg.device)
         S = len(bags)
         L = n_frag.shape[1]
         encoder = SetTransformerEncoder(

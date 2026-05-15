@@ -98,9 +98,89 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
     pred_no_hier, _ = _ablation_predict(
         pred_baseline, ds.n, use_hierarchy=False, use_full_iter=False
     )
+
+    pred_torch_mean = None
+    pred_torch_std = None
+    if args.torch_svi:
+        from havi_methyl.torch_svi import (
+            TorchSVIConfig,
+            fit_svi_torch,
+            predict_with_torch_state,
+        )
+
+        # Infer in_dim from the first non-empty bag (Liu 2024 has 3 features
+        # per fragment: length, strand_signed, buffy_coat_prior).
+        in_dim = 3
+        for sample_bags in ds.bags:
+            for bag in sample_bags:
+                if bag.shape[0] > 0:
+                    in_dim = bag.shape[1]
+                    break
+            if in_dim != 3 or any(b.shape[0] > 0 for b in sample_bags):
+                break
+
+        cfg = TorchSVIConfig(
+            in_dim=in_dim,
+            hidden=args.torch_hidden,
+            posterior=args.torch_posterior,
+            k_iwae=args.torch_iwae_k,
+            batch_samples=min(args.torch_batch_samples, S),
+            batch_loci=min(args.torch_batch_loci, L),
+            device=args.torch_device,
+        )
+        print(
+            f"Training fit_svi_torch on real Liu 2024: in_dim={in_dim}, "
+            f"posterior={cfg.posterior}, k_iwae={cfg.k_iwae}, "
+            f"n_iter={args.torch_iter}, S={S}, L={L} ..."
+        )
+        state = fit_svi_torch(
+            ds.bags, ds.n, ds.n_meth, n_iter=args.torch_iter, config=cfg, seed=args.seed
+        )
+        pred_torch_mean, pred_torch_std = predict_with_torch_state(state, ds.bags, ds.n)
+        print(
+            f"  trained; pred mean range [{pred_torch_mean.min():.3f}, "
+            f"{pred_torch_mean.max():.3f}], "
+            f"std mean {pred_torch_std.mean():.3f}"
+        )
+
+        # Add the torch row to the metric table.
+        from havi_methyl.pipeline import BenchmarkResult
+        from havi_methyl.utils import (
+            auc_threshold,
+            dmr_f1,
+            interval_ece,
+        )
+        from havi_methyl.utils import (
+            icc_2_1 as _icc,
+        )
+        from havi_methyl.utils import (
+            pearson_r as _pearson,
+        )
+        from havi_methyl.utils import (
+            spearman_r as _spearman,
+        )
+
+        z90 = 1.6448536269514722
+        widths = 2 * z90 * pred_torch_std
+        truth = ds.beta_sample
+        results["HAVI-Methyl (full torch)"] = BenchmarkResult(
+            pearson_r=float(_pearson(truth, pred_torch_mean)),
+            spearman_r=float(_spearman(truth, pred_torch_mean)),
+            auc_meth_at_0p5=float(auc_threshold(truth, pred_torch_mean, 0.5)),
+            ece_credible=float(interval_ece(truth, pred_torch_mean, widths)),
+            icc_2_1=float(_icc(np.stack([truth.flatten(), pred_torch_mean.flatten()], axis=1))),
+            dmr_f1=float(
+                dmr_f1(
+                    truth[idx_a],
+                    truth[idx_b],
+                    pred_torch_mean[idx_a],
+                    pred_torch_mean[idx_b],
+                )
+            ),
+        )
+
     pred_npz = "outputs/finaleme_realdata_predictions.npz"
-    np.savez(
-        pred_npz,
+    npz_payload = dict(
         truth=ds.beta_sample,
         pred_finaleme_hmm=pred_baseline,
         pred_havi_full=pred_full,
@@ -108,6 +188,10 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
         pred_havi_no_hier=pred_no_hier,
         n_frag=ds.n,
     )
+    if pred_torch_mean is not None:
+        npz_payload["pred_havi_torch"] = pred_torch_mean
+        npz_payload["std_havi_torch"] = pred_torch_std
+    np.savez(pred_npz, **npz_payload)
     print(f"Wrote {pred_npz} for the per-locus scatter figure")
 
     status = (
@@ -161,6 +245,35 @@ def main() -> None:
             "to the per-locus mean methylation in the buffy-coat reference, "
             "matching FinaleMe's methylation-prior input."
         ),
+    )
+    parser.add_argument(
+        "--torch-svi",
+        action="store_true",
+        help=(
+            "Run the FULL HAVI-Methyl torch SVI loop "
+            "(Set Transformer + posterior head + Beta-Binomial reconstruction) "
+            "on top of the simplified pipeline, adding a "
+            "'HAVI-Methyl (full torch)' row to the metric table. Requires "
+            "torch installed (`make install-torch`)."
+        ),
+    )
+    parser.add_argument("--torch-iter", type=int, default=80)
+    parser.add_argument(
+        "--torch-posterior",
+        type=str,
+        choices=("gaussian", "flow"),
+        default="gaussian",
+        help="Posterior head: gaussian (stable) or flow (Conditional NSF stack).",
+    )
+    parser.add_argument("--torch-iwae-k", type=int, default=4)
+    parser.add_argument("--torch-hidden", type=int, default=32)
+    parser.add_argument("--torch-batch-samples", type=int, default=8)
+    parser.add_argument("--torch-batch-loci", type=int, default=64)
+    parser.add_argument(
+        "--torch-device",
+        type=str,
+        default="auto",
+        help="Device for fit_svi_torch: auto, cpu, cuda, cuda:0, mps, ...",
     )
     args = parser.parse_args()
 
