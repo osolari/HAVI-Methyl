@@ -109,7 +109,58 @@ def main() -> None:
         keep = [b for b in bits if b.startswith(("n_samples", "n_loci"))]
         short_status = "Liu 2024 paired: " + ", ".join(keep) if keep else "Liu 2024 paired"
     fig.suptitle(f"FinaleMe paired benchmark on real Liu 2024 data\n{short_status}", fontsize=12)
-    plt.tight_layout()
+
+    # Annotate the absolute improvement HAVI makes over FinaleMe.
+    havi_r = max(pearson[i] for i, m in enumerate(methods) if "HAVI" in m)
+    fm_r = pearson[methods.index("FinaleMe-style HMM")] if "FinaleMe-style HMM" in methods else None
+    havi_ece = min(ece[i] for i, m in enumerate(methods) if "HAVI" in m)
+    fm_ece = ece[methods.index("FinaleMe-style HMM")] if "FinaleMe-style HMM" in methods else None
+    if fm_r is not None and fm_ece is not None:
+        delta_r_pct = 100 * (havi_r - fm_r) / max(fm_r, 1e-9)
+        delta_ece_pct = 100 * (fm_ece - havi_ece) / max(fm_ece, 1e-9)
+        axes[0].text(
+            0.5,
+            0.97,
+            f"HAVI best vs FinaleMe-HMM: +{delta_r_pct:.1f}% relative r",
+            transform=axes[0].transAxes,
+            ha="center",
+            va="top",
+            fontsize=9,
+            color=_style.CEREBRAS_ORANGE,
+            weight="bold",
+        )
+        axes[1].text(
+            0.5,
+            0.97,
+            f"HAVI best vs FinaleMe-HMM: −{delta_ece_pct:.1f}% relative ECE",
+            transform=axes[1].transAxes,
+            ha="center",
+            va="top",
+            fontsize=9,
+            color=_style.CEREBRAS_ORANGE,
+            weight="bold",
+        )
+
+    # Caption noting the simplified-pipeline limitation. This is the
+    # crucial honesty caveat: the HAVI rows here use the numpy
+    # fit_svi_simplified shrinkage on top of the FinaleMe baseline, NOT
+    # the full Set Transformer + flow torch architecture. The full
+    # architecture is exercised in bench_torch_svi.csv on synthetic data
+    # (r=0.55-0.95 vs FinaleMe r=0.16-0.97) and in the multi-seed
+    # recovery figure.
+    fig.text(
+        0.5,
+        0.005,
+        "Note: HAVI-Methyl rows here use the simplified-numpy SVI shrinkage on top of the FinaleMe baseline. "
+        "The full torch architecture (Set Transformer + flow) is shown in fig_multiseed_recovery.",
+        ha="center",
+        va="bottom",
+        fontsize=8,
+        style="italic",
+        color=_style.NEUTRAL_GRAY,
+    )
+
+    plt.tight_layout(rect=(0, 0.04, 1, 0.95))
     png, pdf = _style.save_figure("finaleme_paired_metrics")
     print(f"Wrote {png} and {pdf}")
 
