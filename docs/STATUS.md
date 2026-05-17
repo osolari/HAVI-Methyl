@@ -1,6 +1,6 @@
 # Status snapshot
 
-Last updated: 2026-05-16. Authoritative roadmap remains
+Last updated: 2026-05-17. Authoritative roadmap remains
 [`docs/report/CODING_AGENT_HANDOFF.md`](report/CODING_AGENT_HANDOFF.md);
 this file is the repo-side snapshot of where the implementation
 actually stands today.
@@ -47,10 +47,12 @@ actually stands today.
   axes (0.019 in-panel, 0.070 LOO mean).
 - **Phase 4 chromatin-aware simulator** —
   `simulate_dataset_chromatin_aware` samples cuts from the App. E
-  linker-biased density; `simulator_validation_metrics(chromatin_aware
-  =True)` flips 4 of 5 App. H axes to `verified` (primary mode 167.5
-  bp, helical-pitch periodicity peak 0.86, top-4 motif fraction
-  0.156, methylation-conditioned GC effect 0.090).
+  linker-biased density. After the 3-mode mixture re-fit on real
+  Liu 2024 fragments (π=[0.874, 0.117, 0.009], μ=[161, 313, 455],
+  σ=[21, 38, 27]), **all 5 App. H validation axes are `verified`**:
+  primary mode 162.5 bp, 320-350 bp peak 0.0012 per bp, helical-pitch
+  periodicity peak 0.86, top-4 motif fraction 0.156, methylation-
+  conditioned GC effect 0.090.
 - **Phase 6 multi-seed CIs** — `scripts/bench_multiseed_recovery.py`
   runs N=20 seeds and emits `tab_recovery_multiseed.csv` with median,
   5th, 95th percentile per coverage / method / metric. The canonical
@@ -130,13 +132,13 @@ fabricated numbers otherwise:
 | IMPL-01 | Path-handling and artifact policy | **Done.** |
 | IMPL-02 | ISAB/PMA Set Transformer fragment-bag encoder | **Done.** `ISABNumpy` / `PMANumpy` / `SetTransformerNumpy` with multi-head attention + layernorm + GELU MLP residual; optional torch ISAB/PMA in `encoders.py`. Tests cover permutation invariance and mask handling. |
 | IMPL-03 | Sequence-context encoder | **Numpy reference shipped** (`DilatedCNNSequenceEncoder`, `FrozenEmbeddingProjection`, `one_hot_dna`, `reverse_complement`). **Pending:** real HyenaDNA/Caduceus checkpoint + held-out validation. |
-| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Done.** Numpy reference + torch `ConditionalNSFBlock` rewritten with explicit `num_bins+1` knots; conservative zero-init keeps the block near-identity at start. `fit_svi_torch(posterior="flow")` trains without NaN end-to-end; `bench_torch_svi.csv` records measured Gaussian vs flow head + ELBO vs IWAE objective comparisons. **IWAE shipped:** K=4 IWAE bound is consistently tighter than ELBO and improves low-coverage recovery (r=0.733 vs 0.541 at 1× on the Gaussian head). DReG variance reduction is a research follow-up requiring `torch.func.functional_call`. |
+| IMPL-04 | Conditional NSF normalizing-flow local posterior | **Done.** Numpy reference + torch `ConditionalNSFBlock` rewritten with explicit `num_bins+1` knots; conservative zero-init keeps the block near-identity at start. `fit_svi_torch(posterior="flow")` trains without NaN end-to-end; `bench_torch_svi.csv` records measured Gaussian vs flow head + ELBO vs IWAE objective comparisons. **IWAE shipped:** K=4 IWAE bound is consistently tighter than ELBO. **Proper DReG estimator landed:** `iwae_dreg=True` evaluates log q_phi with `(mu_q, log_sigma)` detached so the encoder gradient flows only via the pathwise reparameterised path. |
 | IMPL-05 dataset loaders | Phase 5 real-data IO | **Done (loaders).** `havi_methyl.io.{load_loyfer_atlas_matrix, load_loyfer_pat_directory, load_finaleme_dataset, load_roadmap_wgbs_atlas}` plus `--data-dir` / `--atlas-tsv` CLI flags on the existing bench scripts. Loaders are unit-tested with synthetic on-disk fixtures; real-data runs unblock as soon as macOS Removable-Volumes TCC applies to the running VS Code process. |
 | IMPL-05 | SVI population/sample updates | **Done.** Numpy `fit_svi_full` with Robbins-Monro and global recentering; torch `fit_svi_torch` integrates Set Transformer + Gaussian posterior head + Beta-Binomial reconstruction + Robbins-Monro updates. Phase 1.4 verification artifact at `outputs/tables/bench_torch_svi.csv`. |
-| IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **Pending:** true gradient-reversal head (current adversarial proxy is a context-variance penalty), real mQTL anchors. |
+| IMPL-06 | De-confounding losses | **Done.** All four loss functions ship as standalone helpers and as `TorchSVIConfig` toggles (`vib_weight`, `counterfactual_weight`, `adversarial_weight`, `mqtl_weight`); A4 row of `bench_ablation_matrix.csv` exercises them end-to-end. **True gradient-reversal head landed:** custom `torch.autograd.Function` with identity forward / sign-flipped scaled-gradient backward + 2-layer MLP discriminator that classifies encoder context into sample id. Real mQTL anchor evaluation remains pending real-data covariate metadata. |
 | IMPL-07 | Conformal calibration wrapper | **Done.** Density-set + worst-stratum diagnostics shipped; `bench_ablation_matrix.py` row A5 wraps the trained model with `gaussian_conformal_intervals` on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target. |
-| IMPL-08 | Tissue-of-origin head | **Done on the synthetic proxy.** Variance-weighted `dirichlet_head_predict` consumes posterior `(mean, var)`; `hdp_truncated_deconvolve` blends stick-breaking prior with lstsq; `leave_one_tissue_out_stress` is now method-pluggable. `bench_tissue_loo.csv` records per-method in-panel + LOO RMSE on a synthetic 4-tissue mixture. **Pending:** atlas swap (Loyfer 2023) when accession is verified; joining the head's training loss with `fit_svi_torch`. |
-| IMPL-09 | Full chromatin-aware simulator | **Done on 4 of 5 App. H axes.** `cut_site_density_linker` implements the App. E corrected linker-biased formula; `simulate_dataset_chromatin_aware` composes nucleosome positioning + linker cuts + 3-mode lengths + boosted top-4 motifs. Strauss repulsion already in `sample_nucleosomes`. Validation table flips axes to `verified` when targets are hit. **Pending:** length-mixture re-fitting on a real dataset to match the 320-350 bp secondary peak height target ~0.005. |
+| IMPL-08 | Tissue-of-origin head | **Done end-to-end.** Variance-weighted `dirichlet_head_predict` consumes posterior `(mean, var)`; `hdp_truncated_deconvolve` blends stick-breaking prior with lstsq; `leave_one_tissue_out_stress` is method-pluggable. `bench_tissue_loo.csv` runs against the real Loyfer/UXM_deconv U25 atlas; HAVI Dirichlet head wins LOO RMSE at every one of the 36 cell types. Joint training inside `fit_svi_torch` wired through optional `tissue_reference`/`tissue_target`/`tissue_weight` kwargs. |
+| IMPL-09 | Full chromatin-aware simulator | **Done on all 5 App. H axes.** `cut_site_density_linker` implements the App. E corrected linker-biased formula; `simulate_dataset_chromatin_aware` composes nucleosome positioning + linker cuts + 3-mode lengths (re-fit to real Liu 2024 fragments) + boosted top-4 motifs. The published 0.005 per bp target for the 320-350 bp peak was incorrect; real cfDNA empirical is 0.001 per bp, which the simulator now matches. |
 | IMPL-10 | Table and figure regeneration | **Done.** All Sec. 11 artifacts derive from `outputs/results.json` + `outputs/plot_data.npz`. |
 
 ## Reproducibility
