@@ -19,7 +19,7 @@ $\beta_{\mathrm{VIB}}$ & tune on validation & $0.3$ (A2--A5 stress test) & VIB w
 $\lambda_{\mathrm{cf}}$ & tune on validation & wired via \texttt{counterfactual\_weight} & Counterfactual invariance\\
 $\lambda_{\mathrm{mQTL}}$ & tune on validation & wired via \texttt{mqtl\_weight} (no anchors yet) & mQTL anchor weight\\
 $\lambda_{\mathrm{ToO}}$ & tune on validation & post-hoc Dirichlet head (Sec.~\ref{sec:too}) & Tissue loss weight\\
-$\lambda_{\mathrm{dom}}$ & tune on validation & context-variance proxy (\texttt{adversarial\_weight}) & Adversarial weight (true gradient-reversal: open follow-up)\\
+$\lambda_{\mathrm{dom}}$ & tune on validation & GRL + sample-id discriminator (\texttt{adversarial\_weight}) & Adversarial weight; true gradient-reversal layer over a small MLP discriminator\\
 \midrule
 \multicolumn{4}{l}{\emph{Architecture}}\\
 $d_c$ & $128$ & $32$ (\texttt{hidden}; A10G default) & Encoder hidden dim\\

@@ -91,6 +91,43 @@ if HAS_TORCH:
         # accepted by torch.device is also valid (e.g. "cuda:0", "cpu", "mps").
         device: str = "auto"
 
+    class _GradientReversalFunction(torch.autograd.Function):
+        """Identity forward, sign-flipped scaled-gradient backward.
+
+        Used to make the encoder produce contexts that are *uninformative*
+        about a confounder (e.g. sample id, batch, atlas source). The
+        discriminator is trained normally on the encoder context to predict
+        the confound; the encoder receives the gradient with the sign
+        flipped, scaled by ``lambda_grl``.
+        """
+
+        @staticmethod
+        def forward(ctx, x, lambda_grl):  # type: ignore[override]
+            ctx.lambda_grl = lambda_grl
+            return x.view_as(x)
+
+        @staticmethod
+        def backward(ctx, grad_output):  # type: ignore[override]
+            return -ctx.lambda_grl * grad_output, None
+
+    def _grad_reverse(x: torch.Tensor, lambda_grl: float = 1.0) -> torch.Tensor:
+        return _GradientReversalFunction.apply(x, lambda_grl)
+
+    class _DomainDiscriminator(nn.Module):
+        """Small MLP that classifies encoder context into ``n_domains`` classes."""
+
+        def __init__(self, ctx_dim: int, n_domains: int):
+            super().__init__()
+            self.n_domains = n_domains
+            self.net = nn.Sequential(
+                nn.Linear(ctx_dim, 64),
+                nn.GELU(),
+                nn.Linear(64, n_domains),
+            )
+
+        def forward(self, ctx: torch.Tensor) -> torch.Tensor:
+            return self.net(ctx)
+
     class _GaussianPosteriorHead(nn.Module):
         """Encoder context -> (mu, log_sigma) of the q(eta|c) Gaussian head."""
 
@@ -196,6 +233,15 @@ if HAS_TORCH:
         else:
             raise ValueError(f"Unknown posterior {cfg.posterior!r}")
 
+        # Optional adversarial discriminator -- only built when actually
+        # needed so the headline (adversarial_weight=0) path is untouched.
+        discriminator: nn.Module | None = None
+        if cfg.adversarial_weight > 0:
+            # Default confound: sample identity. The discriminator tries to
+            # predict which of the S samples produced each encoder context;
+            # the GRL forces the encoder to make its context sample-invariant.
+            discriminator = _DomainDiscriminator(cfg.hidden, n_domains=len(bags)).to(device)
+
         # Warm-start population logit from the empirical beta per locus.
         # Without this, training on shallow real-data WGBS can drift to a
         # degenerate near-zero solution because the Beta-Binomial
@@ -215,7 +261,10 @@ if HAS_TORCH:
         delta_mean = torch.zeros(S, device=device)
         delta_var = torch.full((S,), cfg.sigma_delta**2, device=device)
 
-        opt = torch.optim.AdamW(list(encoder.parameters()) + list(head.parameters()), lr=cfg.lr)
+        opt_params = list(encoder.parameters()) + list(head.parameters())
+        if discriminator is not None:
+            opt_params += list(discriminator.parameters())
+        opt = torch.optim.AdamW(opt_params, lr=cfg.lr)
         rng = np.random.default_rng(seed)
         state = TorchSVIState(
             config=cfg,
@@ -235,10 +284,14 @@ if HAS_TORCH:
             n_obs_list = []
             n_meth_list = []
             mu_prior_list = []
+            sample_id_list: list[int] = []
+            c_frag_list: list[torch.Tensor] = []
             for s in sample_batch:
                 for ell in loci_batch:
                     bag = bags[s][ell]
                     c_frag = _encode_bag(encoder, bag, device, cfg.hidden)
+                    c_frag_list.append(c_frag)
+                    sample_id_list.append(int(s))
                     n_l = float(n_frag[s, ell])
                     ctx = torch.cat(
                         [
@@ -358,14 +411,23 @@ if HAS_TORCH:
                     eta_swap, _ = head(epsilon, ctx_swap)
                     cf_loss = ((eta - eta_swap) ** 2).mean()
                 loss = loss + cfg.counterfactual_weight * cf_loss
-            if cfg.adversarial_weight > 0:
-                # Gradient-reversal placeholder: penalise variance of the
-                # encoder context across samples (simple invariance proxy).
-                # A true gradient-reversal head with a per-sample classifier
-                # is tracked as an IMPL-06 follow-up.
-                ctx_means = ctx_batch[:, : cfg.hidden].mean(dim=0, keepdim=True)
-                adv_loss = ((ctx_batch[:, : cfg.hidden] - ctx_means) ** 2).mean()
-                loss = loss + cfg.adversarial_weight * adv_loss
+            if cfg.adversarial_weight > 0 and discriminator is not None:
+                # True gradient-reversal adversarial head: a small MLP
+                # discriminator tries to predict the sample id (the
+                # confounder) from the encoder context; the gradient
+                # reversal layer pushes the encoder to make its context
+                # sample-invariant. The discriminator parameters are
+                # trained normally; the encoder receives -lambda * grad.
+                # We use the raw fragment-bag encoding (first cfg.hidden
+                # dims of ctx, before pop_mean/delta_mean/log(1+n) are
+                # concatenated) so the discriminator can't trivially win
+                # on the per-sample shift channel.
+                enc_ctx = torch.stack(c_frag_list, dim=0)
+                rev_ctx = _grad_reverse(enc_ctx, cfg.adversarial_weight)
+                logits = discriminator(rev_ctx)
+                labels = torch.tensor(sample_id_list, dtype=torch.long, device=device)
+                adv_loss = torch.nn.functional.cross_entropy(logits, labels)
+                loss = loss + adv_loss
             if cfg.mqtl_anchors is not None and cfg.mqtl_weight > 0:
                 geno, intercept, effect, anchor_idx = cfg.mqtl_anchors
                 anchor_mask = np.isin(
