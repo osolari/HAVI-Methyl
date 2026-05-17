@@ -9,11 +9,17 @@ the tissue-of-origin head — see `docs/report/main.pdf` for the full
 manuscript and `docs/report/CODING_AGENT_HANDOFF.md` for the implementation
 roadmap.
 
-This repository ships the **released simplified harness** described in
-Sec. 11 of the manuscript: an empirical-Bayes Gaussian-posterior variant
-that exercises the hierarchy on synthetic data. The full Set Transformer +
-normalizing-flow + conformal + Dirichlet-ToO architecture is preserved as a
-planned implementation target — see [`IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md).
+This repository ships **both**: the released simplified-numpy harness
+used for the synthetic recovery benchmark (Sec. 11), and the **full
+torch SVI training stack** (Set Transformer encoder + Gaussian or
+Conditional NSF flow posterior head + Beta-Binomial reconstruction +
+Robbins-Monro recentering) that lands the headline real-data result.
+On the published Liu 2024 paired cfDNA WGS/WGBS panel ($S=77$ patients,
+$L=782$ high-variance CpGs), HAVI-Methyl (full torch) achieves Pearson
+$r = 0.455$ versus a FinaleMe-style HMM baseline at $r = 0.078$ (cf.
+`docs/report/figures/finaleme_paired_metrics.png`). All six
+implementation phases of [`IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md)
+are complete.
 
 Repository layout:
 
@@ -75,29 +81,49 @@ make report                             # regenerate figures + recompile docs/re
 
 ## Running benchmarks against real data (Phase 5)
 
-The synthetic-proxy benches accept `--data-dir` / `--atlas-tsv` flags.
-Pointing them at the corresponding lab data switches `_status` columns
-from `synthetic ... proxy` to real-data attribution; numbers are the
-real pipeline output.
+The Phase 5 benches consume real datasets via the loaders in
+`havi_methyl.io`: `load_finaleme_dataset`, `load_loyfer_atlas_matrix`,
+`load_loyfer_pat_directory`, `load_roadmap_wgbs_atlas`.
 
 ```bash
-# Liu 2024 paired WGS/WGBS FinaleMe benchmark.
+# Loyfer 2023 tissue-of-origin LOO on the published U25 panel
+# (36 cell types x 900 markers; HAVI Dirichlet head wins every metric).
+python3 scripts/bench_tissue_loo.py \
+    --atlas-tsv data/loyfer_panel/Atlas.U25.l4.hg38.tsv \
+    --n-tissues 36 --loci 900 --samples 50
+python3 scripts/fig_loyfer_loo_per_tissue.py     # per-tissue breakdown
+
+# Liu 2024 paired cfDNA -> WGBS benchmark on a GPU.
+# Requires the lab drive mounted (cf. data/finaleme_manifest/sample_pairs.csv
+# for the donor-pairing manifest from Nature Comm Supplementary Table 1).
 python3 scripts/bench_finaleme_realdata.py \
     --data-dir /path/to/finaleme \
-    --locus-panel /path/to/panel.bed \
-    --samples 80 --loci 5000
-
-# Loyfer 2023 atlas LOO tissue-of-origin benchmark.
-python3 scripts/bench_tissue_loo.py \
-    --atlas-tsv /path/to/human_methylome_atlas.tsv \
-    --n-tissues 12 --loci 1000
+    --manifest data/finaleme_manifest/sample_pairs.csv \
+    --locus-panel data/finaleme_manifest/high_variance_cpgs.hg19.bed \
+    --buffy-coat-bw /path/to/wgbs_buffyCoat_jensen2015GB.methy.hg19.bw \
+    --torch-svi --torch-iter 200 --torch-device cuda --torch-iwae-k 4 \
+    --torch-snapshot-every 20
+python3 scripts/fig_finaleme_coverage_strat.py    # per-stratum breakdown
+python3 scripts/fig_finaleme_paired_scatter.py    # hexbin density
+python3 scripts/fig_finaleme_paired_metrics.py    # bar chart
+python3 scripts/fig_elbo_trajectory.py            # training curve
 ```
 
-Loaders live in `havi_methyl.io`: `load_finaleme_dataset`,
-`load_loyfer_atlas_matrix`, `load_loyfer_pat_directory`,
-`load_roadmap_wgbs_atlas`. Each returns a dataclass shaped to drop into
-the existing pipeline; see `tests/test_io_loaders.py` for the
-expected on-disk format.
+If the lab drive is not mounted, `bench_finaleme_realdata.py` skips
+the synthetic-proxy overwrite when a real `_status="Liu 2024..."`
+CSV already exists at `outputs/tables/bench_finaleme_realdata.csv`
+(documented in [scripts/run_all.sh](scripts/run_all.sh)).
+
+The high-variance CpG panel is built by scanning the WGBS BEDs;
+re-running is rarely needed since the panel is committed:
+
+```bash
+python3 scripts/build_high_variance_panel.py \
+    --meth-dir /path/to/finaleme/meth_wgbs \
+    --out data/finaleme_manifest/high_variance_cpgs.hg19.bed \
+    --top-n 1000 --min-cov 1 --min-presence-frac 0.40 \
+    --chroms chr1,chr19,chr20,chr21,chr22
+```
 
 `make report` requires a pdfLaTeX installation; on macOS, `brew install --cask
 basictex` (≈100 MB, requires sudo) is the smallest path. The shipped
@@ -108,8 +134,11 @@ Every script accepts `--seed` (default `20260429`, the seed used for the
 numbers reported in the manuscript) and `--fast`. Output:
 
 - `outputs/figures/` — `recovery_scatter.{png,pdf}`, `calibration.{png,pdf}`,
-  `elbo_trajectory.{png,pdf}` (Sec. 11). PDFs and PNGs are mirrored into
-  `docs/report/figures/` so the LaTeX build can find them.
+  `elbo_trajectory.{png,pdf}`, `multiseed_recovery.{png,pdf}` (Sec. 11);
+  `finaleme_paired_metrics.{png,pdf}`, `finaleme_paired_scatter.{png,pdf}`,
+  `finaleme_coverage_strat.{png,pdf}`, `loyfer_loo_rmse.{png,pdf}`,
+  `loyfer_loo_per_tissue.{png,pdf}` (Sec. 12 real-data). PDFs and PNGs
+  are mirrored into `docs/report/figures/` so the LaTeX build can find them.
 - `outputs/tables/` — every table in the manuscript as CSV (mirrored to
   `docs/report/tables/`).
 - `outputs/results.json` — the JSON file that backs the numbers in Sec. 11

@@ -1,6 +1,6 @@
 # Status snapshot
 
-Last updated: 2026-05-13. Authoritative roadmap remains
+Last updated: 2026-05-16. Authoritative roadmap remains
 [`docs/report/CODING_AGENT_HANDOFF.md`](report/CODING_AGENT_HANDOFF.md);
 this file is the repo-side snapshot of where the implementation
 actually stands today.
@@ -75,19 +75,29 @@ actually stands today.
   by lab-drive data:
   - `bench_tissue_loo.csv` runs against the published Loyfer/UXM_deconv
     `Atlas.U25.l4.hg38.tsv` panel (36 tissues × 900 markers). On the
-    4-tissue × 200-locus subsample the HAVI-Methyl Dirichlet head
-    wins every metric: RMSE 0.058 vs lstsq 0.136 vs FinaleMe-binarized
-    0.235; LOO mean RMSE 0.103 vs 0.179 vs 0.297. `_status` reflects
-    the Loyfer source.
-  - `bench_finaleme_realdata.csv` runs against the Liu 2024 paired
-    cfDNA WGS + WGBS files in `/Volumes/Omid Solari/finaleme/`, paired
-    via Supplementary Table 1 (`data/finaleme_manifest/sample_pairs.csv`)
-    on `patient_id`, with the buffy-coat methylation prior wired in
-    via `--buffy-coat-bw`. On the 782-CpG high-variance panel built
-    by `scripts/build_high_variance_panel.py`, HAVI-Methyl simplified
-    (no flow) leads on Pearson r (0.082 vs FinaleMe HMM 0.078) and
-    on ECE (0.32–0.42 vs 0.47). Absolute r is modest because Liu's
-    matched WGBS is shallow; the comparative ordering is what matters.
+    full panel the HAVI-Methyl Dirichlet head wins every metric: RMSE
+    0.017 vs lstsq 0.027 vs FinaleMe-binarized 0.037 vs HDP 0.033;
+    LOO mean RMSE 0.017 vs 0.028 vs 0.038 vs 0.035. `_status` reflects
+    the Loyfer source. The per-tissue breakdown
+    (`bench_loyfer_loo_per_tissue.csv`) confirms HAVI wins all 36/36
+    cell types.
+  - `bench_finaleme_realdata.csv` runs the **full torch SVI loop**
+    against the Liu 2024 paired cfDNA WGS + WGBS files at
+    `/Volumes/Omid Solari/finaleme/` (paired via Supplementary Table 1
+    at `data/finaleme_manifest/sample_pairs.csv`), with the buffy-coat
+    methylation prior wired in via `--buffy-coat-bw`. On the 782-CpG
+    high-variance panel built by `scripts/build_high_variance_panel.py`,
+    **HAVI-Methyl (full torch) achieves Pearson r = 0.455 vs the
+    FinaleMe-style HMM baseline at r = 0.078 (5.8x lift), AUC
+    0.74 vs 0.56, and reduces credible-interval ECE from 0.47 to 0.32**.
+    The win comes from running fit_svi_torch with the correct Beta-
+    Binomial trials parameter (WGBS read coverage, ds.n_total) instead
+    of the WGS fragment count. The simplified-numpy rows continue to
+    show their FinaleMe-baseline tie (r=0.08) by construction.
+  - `bench_finaleme_coverage_strat.csv` stratifies the Liu 2024 panel
+    by WGBS depth: in the multi-read interior stratum FinaleMe is
+    anti-correlated with truth (r=-0.05) while HAVI-Methyl reaches
+    +0.28; in the extreme stratum HAVI hits +0.64 vs FinaleMe +0.15.
 - **`havi_methyl.io` loader updates** — `load_loyfer_atlas_matrix`
   defaults now match the real UXM_deconv panel schema (`chr`/`chrom`
   alias, auto-drops `startCpG`/`endCpG`/`target`/`direction`).
