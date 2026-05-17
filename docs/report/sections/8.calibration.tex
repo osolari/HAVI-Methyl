@@ -40,6 +40,7 @@ r_i^{\mathrm{CQR}}=\max\big\{\hat q_{\alpha/2}(F_i)-\beta^*_i,\;\beta^*_i-\hat q
 The resulting interval is locally adaptive while preserving marginal coverage under exchangeability. The ablation matrix row A5 in \texttt{bench\_ablation\_matrix.csv} measures interval-style calibration on the synthetic FinaleMe-proxy: at nominal $0.90$ the empirical coverage is $0.867$ (Fig.~\ref{fig:calibration}, green star) with mean interval width $0.97$. The raw posterior at the same coverage is under-confident with miscalibration $0.17$--$0.30$ across $\{0.1\times, 1\times, 5\times, 30\times\}$ (Fig.~\ref{fig:calibration} right panel); the wrapper reaches the target marginally at all four.
 
 \subsection{Conditional coverage}
+\label{sec:calibration:cond}
 Marginal coverage (Proposition~\ref{prop:conformal}) is the distribution-free guarantee. Reviewers and clinicians often care about conditional coverage, but the negative results of \citet{foygelbarber2021limits} show that exact distribution-free conditional coverage at nontrivial levels is impossible without additional assumptions. Locally adaptive variants---Mondrian conformal prediction with strata defined by coverage, chromatin context, or low-information loci; conformal quantile regression; and importance-weighted conformal---provide partial conditional diagnostics. The real-data benchmark should report coverage by coverage decile, low-information/CpG-density proxy, chromatin state, GC, mappability, and worst stratum.
 
 \subsection{Conformal risk control}
