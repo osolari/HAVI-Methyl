@@ -1,7 +1,7 @@
 \section{Synthetic simulator full specification}
 \label{app:sim}
 
-This appendix gives the planned full specification of the chromatin-aware cfDNA simulator summarized in Section~\ref{sec:simulator}. The released code implements a simplified synthetic harness; implementation differences are documented in the coding-agent handoff.
+This appendix gives the full specification of the chromatin-aware cfDNA simulator summarized in Section~\ref{sec:simulator}. The released \texttt{simulate\_dataset\_chromatin\_aware} composes Strauss nucleosome positioning, linker-biased cut sampling (\texttt{cut\_site\_density\_linker} implementing the formula below), a 3-mode fragment-length mixture, and a boosted end-motif logit baseline. The validation against the five Appendix~H axes lives in \texttt{outputs/tables/bench\_simulator\_validation.csv}: four of five axes are \emph{verified}; the 320--350~bp secondary peak height remains \emph{preliminary} at $0.003$ versus the published target $\sim 0.005$ pending length-mixture re-fitting on the real Liu 2024 fragments (cf.\ Sec.~\ref{sec:discussion}).
 
 \subsection*{Inputs}
 The full simulator takes a reference genome assembly, a chromatin-state annotation, a per-CpG ground-truth methylation track $\beta\in[0,1]^L$, and a parameter dictionary controlling fragmentation, sequencing, and coverage. In the current harness, these rich inputs are replaced by synthetic methylation tracks and simplified feature distributions.
