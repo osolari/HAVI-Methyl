@@ -28,9 +28,10 @@ NPZ_PATH = Path("outputs/finaleme_realdata_predictions.npz")
 
 PANELS = [
     ("pred_finaleme_hmm", "FinaleMe-style HMM", _style.SAIM_INDIGO),
-    ("pred_havi_full", "HAVI-Methyl simplified (full)", _style.CEREBRAS_ORANGE),
-    ("pred_havi_no_flow", "HAVI-Methyl simplified (no flow)", "#1B7A5A"),
-    ("pred_havi_no_hier", "HAVI-Methyl simplified (no hierarchy)", _style.NEUTRAL_GRAY),
+    ("pred_havi_no_hier", "HAVI simplified\n(no hierarchy)", "#9CA3AF"),
+    ("pred_havi_no_flow", "HAVI simplified\n(no flow)", "#9CA3AF"),
+    ("pred_havi_full", "HAVI simplified\n(full)", "#9CA3AF"),
+    ("pred_havi_torch", "HAVI-Methyl\n(full torch)", _style.CEREBRAS_ORANGE),
 ]
 
 
@@ -58,26 +59,70 @@ def main() -> None:
         idx = np.arange(truth.size)
     truth_s = truth[idx]
 
+    # Filter PANELS to those actually present in the npz.
+    panels_present = [(k, lab, col) for (k, lab, col) in PANELS if k in bundle]
+    n = len(panels_present)
+    # 2 rows x 3 cols layout (5 panels + 1 unused -> hide last) when 5 panels,
+    # 1 row x N when N <= 4.
+    if n >= 5:
+        nrows, ncols = 2, 3
+    else:
+        nrows, ncols = 1, n
     _style.apply_default_style()
-    fig, axes = plt.subplots(2, 2, figsize=(9, 9), sharex=True, sharey=True)
-    for ax, (key, label, color) in zip(axes.flat, PANELS, strict=False):
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(4.5 * ncols, 5.0 * nrows),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True,
+    )
+    axes = np.atleast_2d(axes).flatten()
+    for ax_idx, (ax, (key, label, color)) in enumerate(zip(axes[:n], panels_present, strict=False)):
         pred = bundle[key].flatten()[idx]
         r = float(np.corrcoef(truth_s, pred)[0, 1])
-        ax.scatter(truth_s, pred, s=4, alpha=0.25, color=color, edgecolors="none")
-        ax.plot([0, 1], [0, 1], color="black", linewidth=0.7, linestyle="--")
+        # Hexbin shows density better than scatter for tens of thousands of points.
+        ax.hexbin(
+            truth_s,
+            pred,
+            gridsize=40,
+            cmap="Oranges" if color == _style.CEREBRAS_ORANGE else "Greys",
+            mincnt=1,
+            extent=(0, 1, 0, 1),
+        )
+        ax.plot([0, 1], [0, 1], color="black", linewidth=0.8, linestyle="--", alpha=0.6)
         ax.set_xlim(0, 1)
         ax.set_ylim(0, 1)
-        ax.set_title(f"{label}\nPearson r = {r:.3f}", fontsize=10)
-        ax.set_xlabel("WGBS truth β")
-        ax.set_ylabel("Predicted β")
+        title_color = _style.CEREBRAS_ORANGE if color == _style.CEREBRAS_ORANGE else "black"
+        title_weight = "bold" if color == _style.CEREBRAS_ORANGE else "normal"
+        ax.set_title(
+            f"{label}\nr = {r:.3f}",
+            fontsize=10,
+            color=title_color,
+            fontweight=title_weight,
+        )
+        in_last_row = ax_idx >= n - ncols
+        if in_last_row:
+            ax.set_xlabel("WGBS truth β")
+        if ax_idx % ncols == 0:
+            ax.set_ylabel("Predicted β")
         ax.grid(linestyle=":", linewidth=0.4, alpha=0.4)
+        ax.set_aspect("equal", adjustable="box")
+    # Hide any unused axes (e.g. the 6th cell of the 2x3 grid when n=5).
+    for extra_ax in axes[n:]:
+        extra_ax.axis("off")
 
     S, L = bundle["truth"].shape if bundle["truth"].ndim == 2 else (None, None)
     summary = ""
     if S is not None:
-        summary = f"  (n_samples={S}, n_loci={L}, {args.max_points} of {S * L} points shown)"
-    fig.suptitle(f"Liu 2024 paired cfDNA WGS → WGBS prediction{summary}", fontsize=12)
-    plt.tight_layout()
+        summary = (
+            f"  (n_samples={S}, n_loci={L}, {min(args.max_points, S * L)} of {S * L} points shown)"
+        )
+    fig.suptitle(
+        f"Liu 2024 paired cfDNA WGS → WGBS prediction{summary}\n"
+        f"Hexbin density; diagonal y=x dashed; HAVI full torch spans the full range",
+        fontsize=13,
+    )
     png, pdf = _style.save_figure("finaleme_paired_scatter")
     print(f"Wrote {png} and {pdf}")
 

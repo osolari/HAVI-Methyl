@@ -35,8 +35,9 @@ class FinaleMeDataset:
     locus_start: list[int]
     locus_end: list[int]
     bags: list[list[np.ndarray]]
-    n: np.ndarray  # (S, L) fragment counts per locus
-    n_meth: np.ndarray  # (S, L) methylated-CpG counts (from WGBS truth)
+    n: np.ndarray  # (S, L) WGS fragment counts per locus (encoder feature)
+    n_meth: np.ndarray  # (S, L) methylated read count (from WGBS reads, BB successes)
+    n_total: np.ndarray  # (S, L) WGBS read coverage (BB trials -- distinct from n!)
     beta_sample: np.ndarray  # (S, L) WGBS-derived methylation fraction
     feature_names: list[str]
     source: dict[str, str]
@@ -448,6 +449,7 @@ def load_finaleme_dataset(
         bags=bags_per_sample,
         n=n,
         n_meth=n_meth_mat,
+        n_total=n_total_mat,
         beta_sample=beta,
         feature_names=feature_names,
         source={"frag_wgs": str(frag_dir), "meth_wgbs": str(meth_dir)},

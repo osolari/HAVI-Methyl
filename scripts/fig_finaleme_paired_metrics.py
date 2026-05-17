@@ -52,9 +52,10 @@ def main() -> None:
 
     method_color = {
         "FinaleMe-style HMM": _style.SAIM_INDIGO,
-        "HAVI-Methyl simplified (full)": _style.CEREBRAS_ORANGE,
-        "HAVI-Methyl simplified (no flow)": "#1B7A5A",
-        "HAVI-Methyl simplified (no hierarchy)": _style.NEUTRAL_GRAY,
+        "HAVI-Methyl simplified (full)": "#9CA3AF",
+        "HAVI-Methyl simplified (no flow)": "#9CA3AF",
+        "HAVI-Methyl simplified (no hierarchy)": "#9CA3AF",
+        "HAVI-Methyl (full torch)": _style.CEREBRAS_ORANGE,
     }
     colors = [method_color.get(m, _style.PALETTE[0]) for m in methods]
 
@@ -62,7 +63,14 @@ def main() -> None:
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
 
     # Wrap long labels for readability.
-    short = [m.replace("HAVI-Methyl simplified ", "HAVI-Methyl\n") for m in methods]
+    short = []
+    for m in methods:
+        if "full torch" in m:
+            short.append("HAVI-Methyl\n(full torch)")
+        elif "simplified" in m:
+            short.append(m.replace("HAVI-Methyl simplified ", "HAVI simplified\n"))
+        else:
+            short.append(m)
     x = np.arange(len(methods))
 
     # Left: Pearson r (higher = better).
@@ -141,18 +149,15 @@ def main() -> None:
             weight="bold",
         )
 
-    # Caption noting the simplified-pipeline limitation. This is the
-    # crucial honesty caveat: the HAVI rows here use the numpy
-    # fit_svi_simplified shrinkage on top of the FinaleMe baseline, NOT
-    # the full Set Transformer + flow torch architecture. The full
-    # architecture is exercised in bench_torch_svi.csv on synthetic data
-    # (r=0.55-0.95 vs FinaleMe r=0.16-0.97) and in the multi-seed
-    # recovery figure.
+    # Honesty caveat: the simplified-numpy rows are FinaleMe + thin SVI
+    # shrinkage by construction; the HAVI-Methyl (full torch) row is the
+    # actual architectural comparison (Set Transformer encoder +
+    # Gaussian posterior head trained 200 iter on CUDA).
     fig.text(
         0.5,
         0.005,
-        "Note: HAVI-Methyl rows here use the simplified-numpy SVI shrinkage on top of the FinaleMe baseline. "
-        "The full torch architecture (Set Transformer + flow) is shown in fig_multiseed_recovery.",
+        "Liu 2024 paired cfDNA: HAVI-Methyl (full torch, orange) trained end-to-end with the BB-trials fix "
+        "vs FinaleMe-style HMM (indigo). Grey bars are the simplified-numpy ablations.",
         ha="center",
         va="bottom",
         fontsize=8,
@@ -160,7 +165,7 @@ def main() -> None:
         color=_style.NEUTRAL_GRAY,
     )
 
-    plt.tight_layout(rect=(0, 0.04, 1, 0.95))
+    plt.tight_layout(rect=(0, 0.04, 1, 0.93))
     png, pdf = _style.save_figure("finaleme_paired_metrics")
     print(f"Wrote {png} and {pdf}")
 

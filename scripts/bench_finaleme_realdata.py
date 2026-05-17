@@ -133,8 +133,21 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
             f"posterior={cfg.posterior}, k_iwae={cfg.k_iwae}, "
             f"n_iter={args.torch_iter}, S={S}, L={L} ..."
         )
+        # Critical: for real cfDNA data the Beta-Binomial trials are the
+        # WGBS read coverage (ds.n_total), NOT the WGS fragment count
+        # (ds.n). They are two separate observation streams; conflating
+        # them would make the BB likelihood interpret "k WGBS-methylated
+        # reads out of N WGS-fragments" which is semantically broken and
+        # causes the model to collapse toward β ≈ 0.
         state = fit_svi_torch(
-            ds.bags, ds.n, ds.n_meth, n_iter=args.torch_iter, config=cfg, seed=args.seed
+            ds.bags,
+            ds.n,
+            ds.n_meth,
+            n_iter=args.torch_iter,
+            config=cfg,
+            seed=args.seed,
+            n_obs=ds.n_total,
+            snapshot_every=args.torch_snapshot_every,
         )
         pred_torch_mean, pred_torch_std = predict_with_torch_state(state, ds.bags, ds.n)
         print(
@@ -191,6 +204,19 @@ def _run_real_data(args) -> tuple[dict, np.ndarray, np.ndarray, str, dict[str, i
     if pred_torch_mean is not None:
         npz_payload["pred_havi_torch"] = pred_torch_mean
         npz_payload["std_havi_torch"] = pred_torch_std
+        # Save the per-iteration ELBO trajectory so the training-curve
+        # figure can replace the flat numpy-SVI placeholder.
+        if hasattr(state, "elbo_history") and state.elbo_history:
+            npz_payload["torch_elbo_history"] = np.asarray(state.elbo_history, dtype=np.float64)
+        if hasattr(state, "recentering_history") and state.recentering_history:
+            npz_payload["torch_recentering_history"] = np.asarray(
+                state.recentering_history, dtype=np.float64
+            )
+        if hasattr(state, "snapshots") and state.snapshots:
+            # state.snapshots: list of (iter, pred_mean) tuples saved during training.
+            iters_, preds_ = zip(*state.snapshots, strict=False)
+            npz_payload["torch_snapshot_iters"] = np.asarray(iters_, dtype=np.int64)
+            npz_payload["torch_snapshot_preds"] = np.stack(preds_, axis=0)
     np.savez(pred_npz, **npz_payload)
     print(f"Wrote {pred_npz} for the per-locus scatter figure")
 
@@ -274,6 +300,16 @@ def main() -> None:
         type=str,
         default="auto",
         help="Device for fit_svi_torch: auto, cpu, cuda, cuda:0, mps, ...",
+    )
+    parser.add_argument(
+        "--torch-snapshot-every",
+        type=int,
+        default=0,
+        help=(
+            "If > 0, snapshot per-locus predictions every K iters during "
+            "fit_svi_torch and save them to the predictions npz so the "
+            "training-curve figure can compute per-iteration Pearson r."
+        ),
     )
     args = parser.parse_args()
 

@@ -119,6 +119,10 @@ if HAS_TORCH:
         delta_var: torch.Tensor
         elbo_history: list[float] = field(default_factory=list)
         recentering_history: list[float] = field(default_factory=list)
+        # Optional snapshots of (iter, pred_mean) saved by fit_svi_torch
+        # when snapshot_every > 0. Lets the training-curve figure plot
+        # actual per-iter Pearson r without re-running the model.
+        snapshots: list[tuple] = field(default_factory=list)
 
     def _encode_bag(
         encoder: SetTransformerEncoder, bag: np.ndarray, device: torch.device, hidden: int
@@ -140,17 +144,30 @@ if HAS_TORCH:
         n_iter: int = 30,
         config: TorchSVIConfig | None = None,
         seed: int = 0,
+        n_obs: np.ndarray | None = None,
+        snapshot_every: int = 0,
     ) -> TorchSVIState:
         """End-to-end torch SVI training loop.
 
         ``bags[s][l]`` is a numpy array ``(n_{s,l}, in_dim)``; ``n_frag`` is the
-        coverage matrix; ``n_meth`` is the methylated-CpG count matrix used by
-        the Beta-Binomial reconstruction term.
+        WGS fragment-count matrix used by the encoder's
+        ``log(1+n_frag)`` context feature; ``n_meth`` is the Beta-Binomial
+        success count (methylated reads). ``n_obs`` is the Beta-Binomial
+        trial count -- for the synthetic simulator this equals ``n_frag``
+        (each fragment is one trial), but for real cfDNA paired data
+        ``n_obs`` is the WGBS read coverage at the CpG, which is a
+        DIFFERENT observation stream from the WGS fragments. Defaults to
+        ``n_frag`` so existing callers keep their behaviour; real-data
+        callers should pass ``ds.n_total`` from ``load_finaleme_dataset``.
 
         Returns the final state with ``elbo_history``,
         ``recentering_history``, and the trained encoder + head.
         """
         cfg = config or TorchSVIConfig()
+        if n_obs is None:
+            n_obs_mat = n_frag
+        else:
+            n_obs_mat = n_obs
         torch.manual_seed(seed)
         if cfg.device == "auto":
             if torch.cuda.is_available():
@@ -179,7 +196,21 @@ if HAS_TORCH:
         else:
             raise ValueError(f"Unknown posterior {cfg.posterior!r}")
 
-        pop_mean = torch.zeros(L, device=device)
+        # Warm-start population logit from the empirical beta per locus.
+        # Without this, training on shallow real-data WGBS can drift to a
+        # degenerate near-zero solution because the Beta-Binomial
+        # likelihood is too weak to pull pop_mean back to the right
+        # global location. The init uses logit(beta_hat) where
+        # beta_hat = (sum_s n_meth) / (sum_s max(n_obs, 1)), clamped
+        # away from {0, 1} so the logit stays finite. Uses the BB
+        # trials matrix (n_obs_mat), which is the WGBS coverage for
+        # real data and equals n_frag for synthetic.
+        n_meth_sum_loc = n_meth.sum(axis=0).astype(np.float64)
+        n_obs_sum_loc = n_obs_mat.sum(axis=0).astype(np.float64)
+        beta_hat = np.where(n_obs_sum_loc > 0, n_meth_sum_loc / np.maximum(n_obs_sum_loc, 1.0), 0.5)
+        beta_hat = np.clip(beta_hat, 0.05, 0.95)
+        logit_init = np.log(beta_hat / (1.0 - beta_hat)).astype(np.float32)
+        pop_mean = torch.tensor(logit_init, device=device)
         pop_var = torch.full((L,), cfg.sigma_pop**2, device=device)
         delta_mean = torch.zeros(S, device=device)
         delta_var = torch.full((S,), cfg.sigma_delta**2, device=device)
@@ -224,7 +255,7 @@ if HAS_TORCH:
                         ]
                     )
                     ctx_list.append(ctx)
-                    n_obs_list.append(n_l)
+                    n_obs_list.append(float(n_obs_mat[s, ell]))
                     n_meth_list.append(float(n_meth[s, ell]))
                     mu_prior_list.append(pop_mean[ell].item() + delta_mean[s].item())
             if not ctx_list:
@@ -393,6 +424,11 @@ if HAS_TORCH:
                 state.recentering_history.append(float(delta_mean.sum().item()))
 
             state.elbo_history.append(float(elbo_surrogate.item()))
+
+            if snapshot_every > 0 and ((t + 1) % snapshot_every == 0 or t == n_iter - 1):
+                with torch.no_grad():
+                    pred_mean_t, _ = predict_with_torch_state(state, bags, n_frag, n_samples=4)
+                state.snapshots.append((t + 1, pred_mean_t.copy()))
 
         return state
 
