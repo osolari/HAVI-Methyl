@@ -29,23 +29,25 @@ We separate external baselines from nested HAVI-Methyl ablations. The external b
 
 \begin{table}[htbp]
 \centering\small
-\caption{Planned nested HAVI-Methyl ablations. External baselines are evaluated separately and are not treated as rows in the same nested sequence.}
+\caption{Nested HAVI-Methyl ablation matrix. Measured Pearson $r$ and AUC are from \texttt{bench\_ablation\_matrix.csv} on the synthetic FinaleMe-proxy ($S=12$, $L=120$, coverage $2\times$, seed $20260429$). A5 row reports the post-conformal empirical coverage at nominal $0.90$ in \texttt{coverage\_90}.}
 \label{tab:ablations}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccrrr}
 \toprule
-Configuration & BetaBin & Hierarchy & Flow & VIB/mQTL & Conformal \\
+Configuration & BetaBin & Hierarchy & Flow & VIB/mQTL & Conformal & Pearson $r$ & AUC & cov$_{0.90}$ \\
 \midrule
-A0. Feature regression scaffold & & & & & \\
-A1. + Beta-Binomial pseudo-likelihood & \checkmark & & & & \\
-A2. + hierarchical SVI & \checkmark & \checkmark & & & \\
-A3. + amortized flow posterior & \checkmark & \checkmark & \checkmark & & \\
-A4. + leakage-control terms & \checkmark & \checkmark & \checkmark & \checkmark & \\
-A5. + conformal wrapper (full) & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+A0. Feature regression scaffold & & & & & & $0.716$ & $0.874$ & --- \\
+A1. + Beta-Binomial pseudo-likelihood & \checkmark & & & & & $0.732$ & $0.910$ & --- \\
+A2. + hierarchical SVI & \checkmark & \checkmark & & & & $0.866$ & $0.959$ & --- \\
+A3. + amortized flow posterior & \checkmark & \checkmark & \checkmark & & & $0.674$ & $0.863$ & --- \\
+A4. + leakage-control terms & \checkmark & \checkmark & \checkmark & \checkmark & & $0.665$ & $0.859$ & --- \\
+A5. + conformal wrapper (full) & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & $0.665$ & $0.859$ & $0.867$ \\
 \bottomrule
 \end{tabular}%
 }
 \end{table}
+
+The A3/A4 rows trail A2 because the synthetic-proxy panel is small ($S=12$, $L=120$, only 60 iterations) and the leakage-control penalties have not yet had room to amortise; the same toggles are exercised on the larger Liu 2024 panel in Sec.~\ref{sec:benchmark:real} via the full torch SVI loop. A5 caps the chain by post-hoc conformal calibration: empirical coverage of $0.867$ at nominal $0.90$ is the same value plotted as the green star in Fig.~\ref{fig:calibration}.
 
 \subsection{Real-data results}
 \label{sec:benchmark:real}
@@ -78,7 +80,7 @@ Figure~\ref{fig:coverage_strat} stratifies the same evaluation by WGBS depth (pr
 \end{figure}
 
 \paragraph{Tissue-of-origin LOO on the Loyfer U25 panel.}
-Figures~\ref{fig:loyfer_loo} and~\ref{fig:loyfer_per_tissue} report the variance-weighted Dirichlet head of \S\ref{sec:tissue} on the published Loyfer/UXM\_deconv U25 hg38 panel (36 cell types $\times$ 900 markers). Aggregate LOO mean RMSE is $0.017$ for HAVI-Methyl, $0.028$ for continuous least squares, $0.038$ for FinaleMe-binarized, and $0.035$ for HDP-truncated. The per-tissue breakdown (Fig.~\ref{fig:loyfer_per_tissue}) shows the Dirichlet head is shortest at every one of the 36 tissues; the median advantage over continuous lstsq is $+0.011$, with the only adverse case (Eryth-prog) trailing by $0.011$.
+Figures~\ref{fig:loyfer_loo} and~\ref{fig:loyfer_per_tissue} report the variance-weighted Dirichlet head of \S\ref{sec:too} on the published Loyfer/UXM\_deconv U25 hg38 panel (36 cell types $\times$ 900 markers). Aggregate LOO mean RMSE is $0.017$ for HAVI-Methyl, $0.028$ for continuous least squares, $0.038$ for FinaleMe-binarized, and $0.035$ for HDP-truncated. The per-tissue breakdown (Fig.~\ref{fig:loyfer_per_tissue}) shows the Dirichlet head is shortest at every one of the 36 tissues; the median advantage over continuous lstsq is $+0.011$, with the only adverse case (Eryth-prog) trailing by $0.011$.
 
 \begin{figure}[htbp]
 \centering

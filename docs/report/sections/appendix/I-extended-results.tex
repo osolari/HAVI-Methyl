@@ -1,7 +1,7 @@
 \section{Extended results}
 \label{app:extres}
 
-This appendix collects extended synthetic-experiment metrics from the released simplified harness at random seed $20260429$, except where explicitly labeled as planned regeneration. These results complement the main text but are still single-seed synthetic point estimates.
+This appendix collects extended synthetic-experiment metrics from the released harness at random seed $20260429$, with multi-seed ($N=20$) bootstrap intervals from \texttt{tab\_recovery\_multiseed.csv}. The real-data extended numbers live in the main body (Sec.~\ref{sec:benchmark:real}) and in \texttt{bench\_finaleme\_realdata.csv}, \texttt{bench\_loyfer\_loo\_per\_tissue.csv}, and \texttt{bench\_finaleme\_coverage\_strat.csv}.
 
 \subsection*{Per-coverage detail}
 \begin{table}[htbp]
@@ -57,7 +57,28 @@ HAVI-Methyl simplified continuous proxy & $0.007$ \\
 \end{tabular}
 \end{table}
 
-The result illustrates the cost of binarization in the simplified synthetic setting. It should not be cited as a completed full Dirichlet-head evaluation.
+The result illustrates the cost of binarization in the simplified synthetic setting. The full Dirichlet-head evaluation on the published Loyfer/UXM\_deconv U25 panel is in Sec.~\ref{sec:benchmark:real} (HAVI Dirichlet head wins LOO RMSE at every one of the $36$ cell types).
+
+\subsection*{Multi-seed recovery sidecar}
+\begin{table}[htbp]
+\centering\small
+\caption{Per-coverage Pearson $r$ from $N=20$ random seeds. Median, $5$th and $95$th percentiles from \texttt{tab\_recovery\_multiseed.csv}. HAVI-Methyl medians do not overlap the FinaleMe-style $90\%$ band at $0.1\times$, $1\times$, and $5\times$.}
+\label{tab:ext-multiseed}
+\begin{tabular}{llccc}
+\toprule
+Coverage & Method & Median $r$ & $p_5$ & $p_{95}$ \\
+\midrule
+$0.1\times$ & FinaleMe-style & $0.191$ & $0.156$ & $0.242$ \\
+$0.1\times$ & HAVI-Methyl    & $0.357$ & $0.246$ & $0.444$ \\
+$1\times$   & FinaleMe-style & $0.520$ & $0.438$ & $0.589$ \\
+$1\times$   & HAVI-Methyl    & $0.790$ & $0.691$ & $0.829$ \\
+$5\times$   & FinaleMe-style & $0.826$ & $0.765$ & $0.893$ \\
+$5\times$   & HAVI-Methyl    & $0.901$ & $0.849$ & $0.947$ \\
+$30\times$  & FinaleMe-style & $0.970$ & $0.949$ & $0.982$ \\
+$30\times$  & HAVI-Methyl    & $0.973$ & $0.953$ & $0.984$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection*{Sensitivity analysis status}
-Sensitivity sweeps over $(\kappa,\sigma_\eta,\sigma_\delta)$ are planned for regeneration. The final version should store sweep outputs in JSON/CSV, report multi-seed uncertainty, and synchronize any manuscript table with those artifacts before treating the sensitivity claims as completed.
+Sensitivity sweeps over $(\kappa,\sigma_\eta,\sigma_\delta)$ remain an open follow-up. The released code exposes all three as \texttt{TorchSVIConfig} fields so a sweep harness is a thin script over \texttt{fit\_svi\_torch}; the cost is one $\sim$80~min A10G run per grid point at the current $S{=}77 \times L{=}782$ panel size.
