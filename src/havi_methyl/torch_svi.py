@@ -79,12 +79,13 @@ if HAS_TORCH:
         # k_iwae=1 reproduces the standard reparam ELBO (Phase 1 default).
         # k_iwae>1 with iwae_dreg=False uses the standard K-sample IWAE
         # objective, which gives a tighter bound (Jensen gap shrinks).
-        # iwae_dreg=True applies a simplified Tucker-2019 doubly-reparam
-        # variance reduction; the full DReG estimator requires detaching
-        # the encoder parameters in log q_phi (PyTorch functional_call),
-        # which is not implemented here. The simplified surrogate is
-        # available but is a research-grade flag, not benefit-positive at
-        # the small synthetic scales used in this repo.
+        # iwae_dreg=True applies the Tucker-2019 doubly-reparameterised
+        # gradient estimator: log q_phi(eta_k|x) is evaluated with
+        # (mu_q, log_sigma) detached so the encoder gradient through
+        # log_q flows only through eta_k (pathwise term), eliminating
+        # the high-variance score-function contribution. Combined with
+        # squared importance-weight mixing this is the doubly-reparam
+        # estimator; we hold K>1 since DReG is undefined for K=1.
         k_iwae: int = 1
         iwae_dreg: bool = False
         # Compute device. "auto" picks cuda > mps > cpu. Any explicit string
@@ -343,7 +344,19 @@ if HAS_TORCH:
                     mu_q, log_sigma = head(ctx_batch)
                     epsilon = torch.randn_like(mu_q)
                     eta = mu_q + torch.exp(log_sigma) * epsilon
-                    log_q_k = -log_sigma - 0.5 * epsilon**2 - 0.5 * np.log(2 * np.pi)
+                    if cfg.iwae_dreg and K > 1:
+                        # Proper Tucker-2019 DReG: detach phi in log q_phi so
+                        # the gradient through log_q_k flows only through
+                        # eta (the pathwise term), not through the explicit
+                        # (mu_q, log_sigma). Combined with squared
+                        # importance weights below, this is the doubly-
+                        # reparameterised estimator.
+                        mu_sg = mu_q.detach()
+                        log_sigma_sg = log_sigma.detach()
+                        eps_eval = (eta - mu_sg) / torch.exp(log_sigma_sg)
+                        log_q_k = -log_sigma_sg - 0.5 * eps_eval**2 - 0.5 * np.log(2 * np.pi)
+                    else:
+                        log_q_k = -log_sigma - 0.5 * epsilon**2 - 0.5 * np.log(2 * np.pi)
                 else:  # pragma: no cover
                     epsilon = torch.randn(ctx_batch.shape[0], device=device)
                     eta, log_jac = head(epsilon, ctx_batch)

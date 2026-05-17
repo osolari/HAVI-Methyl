@@ -24,7 +24,7 @@ Initialize $\lambda_\ell\leftarrow$ empirical-Bayes from a non-test population a
 \Return{$(\lambda,\nu,\phi)$ and auxiliary heads}\;
 \end{algorithm}
 
-\paragraph{Variance reduction.} We apply reparameterization for continuous latents, sticking-the-landing \citep{roeder2017stl} for the encoder gradient, and simple control variates for high-variance discrete or count terms. When the IWAE bound is in use ($K>1$), the full implementation should use the doubly-reparameterized gradient estimator of \citet{tucker2019dreg}. These variance-reduction components are part of the proposed full implementation; the released synthetic harness uses a simpler empirical-Bayes Gaussian posterior.
+\paragraph{Variance reduction.} We apply reparameterization for continuous latents, sticking-the-landing \citep{roeder2017stl} for the encoder gradient, and simple control variates for high-variance discrete or count terms. When the IWAE bound is in use ($K>1$), the released \texttt{fit\_svi\_torch} loop activates the Tucker-2019 doubly-reparameterized gradient estimator via \texttt{TorchSVIConfig.iwae\_dreg} (\S\ref{sec:elbo}). The simplified-numpy harness keeps the empirical-Bayes Gaussian-posterior path; both are exposed end-to-end.
 
 \paragraph{Convergence diagnostics.} We monitor (i) held-out surrogate ELBO or negative reconstruction loss, (ii) posterior-predictive checks of $\beta_{s,\ell}$ against held-out WGBS where available, (iii) effective sample size of importance weights
 \begin{equation}
