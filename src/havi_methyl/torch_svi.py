@@ -183,6 +183,9 @@ if HAS_TORCH:
         seed: int = 0,
         n_obs: np.ndarray | None = None,
         snapshot_every: int = 0,
+        tissue_reference: np.ndarray | None = None,
+        tissue_target: np.ndarray | None = None,
+        tissue_weight: float = 0.0,
     ) -> TorchSVIState:
         """End-to-end torch SVI training loop.
 
@@ -275,6 +278,15 @@ if HAS_TORCH:
             delta_mean=delta_mean,
             delta_var=delta_var,
         )
+
+        # Optional joint tissue-head training (Sec. 9). Set to None when
+        # tissue_weight=0 or the caller didn't supply a reference panel.
+        use_tissue = (
+            tissue_weight > 0 and tissue_reference is not None and tissue_target is not None
+        )
+        if use_tissue:
+            tissue_R = torch.tensor(tissue_reference, dtype=torch.float32, device=device)
+            tissue_pi_true = torch.tensor(tissue_target, dtype=torch.float32, device=device)
 
         for t in range(n_iter):
             sample_batch = rng.choice(S, size=min(cfg.batch_samples, S), replace=False)
@@ -448,6 +460,37 @@ if HAS_TORCH:
                     if a_pred.numel() > 0 and a_mu.numel() == a_pred.numel():
                         mqtl_resid = ((a_mu - a_pred) ** 2).mean()
                         loss = loss + cfg.mqtl_weight * mqtl_resid
+
+            if use_tissue:
+                # Joint tissue-head training (Sec. 9.1 variance-weighted
+                # Dirichlet head). The mini-batch posterior gives us
+                # beta_pred per (sample_in_batch, locus_in_batch); we
+                # solve the locus-batch deconvolution against the
+                # corresponding columns of the tissue reference panel
+                # via differentiable torch.linalg.lstsq, then penalise
+                # MSE against the target tissue fractions.
+                beta_pred = torch.sigmoid(mu_q)
+                S_b, L_b = len(sample_batch), len(loci_batch)
+                beta_pred_grid = beta_pred.view(S_b, L_b)
+                # Restrict reference to the current loci subset.
+                loci_idx = torch.tensor(loci_batch, dtype=torch.long, device=device)
+                R_sub = tissue_R.index_select(1, loci_idx)  # (T, L_b)
+                # Solve R_sub^T @ pi = beta_pred^T for pi in batched form.
+                # torch.linalg.lstsq returns shape (..., n, k), so we
+                # transpose: each sample becomes one rhs column.
+                R_t = R_sub.t()  # (L_b, T)
+                # Add a small ridge for numerical stability.
+                R_t_aug = R_t + 1e-3 * torch.randn_like(R_t)
+                pi_pred, *_ = torch.linalg.lstsq(
+                    R_t_aug.unsqueeze(0).expand(S_b, -1, -1),
+                    beta_pred_grid.unsqueeze(-1),
+                )
+                pi_pred = pi_pred.squeeze(-1).clamp(min=0.0)
+                pi_pred = pi_pred / pi_pred.sum(dim=-1, keepdim=True).clamp(min=1e-6)
+                sample_idx = torch.tensor(sample_batch, dtype=torch.long, device=device)
+                pi_target = tissue_pi_true.index_select(0, sample_idx)
+                tissue_loss = ((pi_pred - pi_target) ** 2).mean()
+                loss = loss + tissue_weight * tissue_loss
 
             opt.zero_grad()
             loss.backward()

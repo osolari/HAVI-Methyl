@@ -20,6 +20,8 @@ This is an expected log-likelihood, not a marginal Gaussian likelihood with infl
 \subsection{HDP nonparametric extension}
 For novel-tissue discovery, the manuscript replaces the finite Dirichlet by a hierarchical Dirichlet process \citep{teh2006hdp,bleijordan2006variationaldp}: the tissue mixture is $\sum_{k=1}^\infty \pi_{s,k}\delta_{\theta_k}$ with $\bm\pi_s\sim\mathrm{GEM}(\alpha)$ and $\theta_k\sim H$. The released \texttt{hdp\_truncated\_deconvolve} implementation uses a variational truncation at $T_{\max}=64$ and is included as a control in Fig.~\ref{fig:loyfer_loo} -- on the Loyfer U25 panel HDP lands between the FinaleMe-binarized and lstsq baselines (LOO mean RMSE $0.035$ vs $0.028$ vs $0.038$), validating the stick-breaking blend without yet beating the variance-weighted Dirichlet head. Pruning components by posterior mass and diagnosing truncation bias near the final stick remain open follow-ups.
 
+\paragraph{Joint training inside \texttt{fit\_svi\_torch}.} The variance-weighted Dirichlet head also runs as a joint training term inside the torch SVI loop when the caller passes \texttt{tissue\_reference} (the $T\times L$ panel), \texttt{tissue\_target} (the ground-truth $S\times T$ mixture), and \texttt{tissue\_weight}~$>0$. On each mini-batch the head solves a differentiable \texttt{torch.linalg.lstsq} on the locus subset to recover $\hat\pi$, then adds $\lambda_{\mathrm{ToO}}\|\hat\pi-\pi_{\mathrm{true}}\|^2$ to the total loss. The post-hoc head of Sec.~\ref{sec:benchmark:real} is recovered by leaving \texttt{tissue\_weight}=0.
+
 \subsection{End-to-end training}
 We write the full objective as a maximization problem:
 \begin{equation}
