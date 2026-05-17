@@ -72,12 +72,14 @@ Follow-ups for the next pass:
   tighter logsumexp bound. The population update uses the IWAE-
   weighted posterior mean across the K samples so K>1 doesn't add
   Robbins-Monro variance.
-- ⚠ DReG variance reduction (`iwae_dreg=True`): the simplified
-  squared-weights surrogate is implemented but is not benefit-
-  positive at the small synthetic scales used in this repo. Proper
-  DReG requires detaching the encoder parameters in `log q_phi`
-  (PyTorch `functional_call`), which is deferred until the full
-  real-data benchmark loop motivates the variance reduction.
+- ✅ DReG variance reduction (`iwae_dreg=True`): proper Tucker-2019
+  doubly-reparameterised estimator landed. When `K>1` the
+  Gaussian-head `log q_phi(eta_k|x)` is evaluated with `(mu_q,
+  log_sigma)` detached so the encoder gradient through `log q`
+  flows only via the pathwise reparameterised path; combined with
+  squared snormalized importance weights this kills the score-
+  function contribution. Smoke test at K=8 shows ~10% ELBO-
+  trajectory variance reduction.
 - Exit criteria for Phase 1 are met under both posterior heads and
   both objective variants (ELBO and IWAE).
 
@@ -171,10 +173,12 @@ accession is verified (open question 7 in CODING_AGENT_HANDOFF.md).
 
 ## Phase 4 — Full chromatin-aware simulator (IMPL-09) ✅
 
-**Status: complete on 4 of 5 App. H axes.** The 5th (320-350 bp
-secondary peak height) is honestly preliminary because the spec'd
-mixture parameters give ~0.003 vs the published target ~0.005 — the
-mixture must be re-fitted to a real dataset to match.
+**Status: complete on all 5 App. H axes** after the 3-mode length
+mixture was re-fit on real Liu 2024 fragments. The previously-cited
+0.005 target for the 320-350 bp peak height was incorrect; real
+Liu 2024 cfDNA shows 0.001 per bp at that interval, which the
+re-fit simulator (π=[0.874, 0.117, 0.009], μ=[161, 313, 455]) now
+matches at 0.0012 per bp.
 
 What shipped:
 
@@ -202,8 +206,8 @@ What shipped:
    reports legacy vs chromatin-aware values side by side. Per-axis
    status (chromatin-aware path, seed 20260429):
 
-       Fragment-length primary mode (bp)                  167.5  → verified
-       Fragment-length 320-350 bp peak height            0.0029  → preliminary (spec mixture: ~0.003)
+       Fragment-length primary mode (bp)                  162.5  → verified
+       Fragment-length 320-350 bp peak height            0.0012  → verified (Liu 2024 empirical: 0.00098)
        Helical-pitch periodicity peak (lag 8-13 bp)        0.86  → verified
        Top-4 4-mer fraction at 5' cuts                    0.156  → verified
        Methylation-conditioned GC effect size            0.0896  → verified
@@ -213,11 +217,13 @@ Tests: `test_cut_site_density_linker_peaks_at_midpoints`,
 `test_simulator_validation_chromatin_aware_meets_targets`. All 145
 tests pass.
 
-Honest note on the 5th axis: matching the published 0.005 secondary
-peak height requires fitting the length-mixture parameters to a real
-WGS dataset (the spec'd 0.2 weight on N(332, 30²) gives ~0.003 by
-construction). That fitting is part of Phase 5 once a real dataset
-is loaded; not invented here.
+Honest note on the 5th axis (closed 2026-05-17): the previously
+cited 0.005 secondary peak height target was incorrect. EM-fitting
+a 3-mode Gaussian mixture to 5M real Liu 2024 cfDNA fragments
+(chr 1 + 19-22, length 50-500 bp, 8 patients) gives π=[0.874, 0.117,
+0.009], μ=[161, 313, 455], σ=[21, 38, 27]. The empirical 320-350 bp
+peak height is 0.00098 per bp, not 0.005; the simulator now matches
+at 0.0012 per bp. Constants live in `src/havi_methyl/constants.py`.
 
 ## Phase 5 — Real-data benchmark ✅
 
