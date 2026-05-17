@@ -311,21 +311,48 @@ def main() -> None:
             "training-curve figure can compute per-iteration Pearson r."
         ),
     )
+    parser.add_argument(
+        "--force-rerun",
+        action="store_true",
+        help=(
+            "Bypass the sticky-skip guard that preserves committed Liu 2024 "
+            "/ HAVI-Methyl (full torch) CSVs when re-running without --torch-svi."
+        ),
+    )
     args = parser.parse_args()
 
-    if not args.data_dir:
-        existing = "outputs/tables/bench_finaleme_realdata.csv"
-        try:
-            with open(existing) as f:
-                head = f.read(4096)
-            if "Liu 2024" in head:
-                print(
-                    f"Real-data CSV at {existing} already carries Liu 2024 numbers; "
-                    f"skipping synthetic-proxy overwrite. Re-run with --data-dir to refresh."
-                )
-                return
-        except FileNotFoundError:
-            pass
+    # Two-tier sticky skip so run_all.sh never silently regresses the
+    # committed real-data CSV:
+    #  1. No --data-dir: any "Liu 2024" CSV protects against synthetic
+    #     overwrite (the original Phase 5 case).
+    #  2. With --data-dir but no --torch-svi: if the existing CSV already
+    #     carries a "HAVI-Methyl (full torch)" row, do not overwrite it
+    #     with a simplified-only re-run. Explicit --torch-svi or
+    #     --force-rerun bypasses this.
+    existing = "outputs/tables/bench_finaleme_realdata.csv"
+    try:
+        with open(existing) as f:
+            existing_text = f.read(8192)
+    except FileNotFoundError:
+        existing_text = ""
+    if not args.data_dir and "Liu 2024" in existing_text:
+        print(
+            f"Real-data CSV at {existing} already carries Liu 2024 numbers; "
+            f"skipping synthetic-proxy overwrite. Re-run with --data-dir to refresh."
+        )
+        return
+    if (
+        args.data_dir
+        and not args.torch_svi
+        and not getattr(args, "force_rerun", False)
+        and "HAVI-Methyl (full torch)" in existing_text
+    ):
+        print(
+            f"Real-data CSV at {existing} already carries a 'HAVI-Methyl (full torch)' row; "
+            f"refusing to regress to a simplified-only re-run. Pass --torch-svi to refresh "
+            f"or --force-rerun to drop the torch row."
+        )
+        return
 
     if args.data_dir:
         results, _n, _beta, status, _ = _run_real_data(args)

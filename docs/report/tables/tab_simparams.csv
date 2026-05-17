@@ -5,9 +5,9 @@ Strauss interaction gamma,0.1,Strauss 1975
 Cut-site rolloff sigma_nuc,20 bp,Inferred from cfDNA
 Periodicity amplitude a,0.3,Snyder et al. 2016
 Periodicity period,10.4 bp,Helical pitch of B-DNA
-Length mixture mode 1,"N(167, 15^2)",Snyder et al. 2016
-Length mixture mode 2,"N(332, 30^2)",Snyder et al. 2016
-Length mixture mode 3,"N(500, 80^2)",Snyder et al. 2016
+Length mixture mode 1,"N(161, 21^2)",Liu 2024 re-fit (3-mode EM on cfDNA fragments)
+Length mixture mode 2,"N(313, 38^2)",Liu 2024 re-fit (3-mode EM on cfDNA fragments)
+Length mixture mode 3,"N(455, 27^2)",Liu 2024 re-fit (3-mode EM on cfDNA fragments)
 Per-base error rate,1.0%,Illumina NovaSeq spec
 Read length,150 bp paired-end,Illumina NovaSeq spec
 NB dispersion r,2,Snyder et al. 2016

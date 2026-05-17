@@ -42,17 +42,17 @@ def main() -> None:
         {
             "parameter": "Length mixture mode 1",
             "value": f"N({sim_params.length_means[0]:.0f}, {sim_params.length_stds[0]:.0f}^2)",
-            "source": "Snyder et al. 2016",
+            "source": "Liu 2024 re-fit (3-mode EM on cfDNA fragments)",
         },
         {
             "parameter": "Length mixture mode 2",
             "value": f"N({sim_params.length_means[1]:.0f}, {sim_params.length_stds[1]:.0f}^2)",
-            "source": "Snyder et al. 2016",
+            "source": "Liu 2024 re-fit (3-mode EM on cfDNA fragments)",
         },
         {
             "parameter": "Length mixture mode 3",
             "value": f"N({sim_params.length_means[2]:.0f}, {sim_params.length_stds[2]:.0f}^2)",
-            "source": "Snyder et al. 2016",
+            "source": "Liu 2024 re-fit (3-mode EM on cfDNA fragments)",
         },
         {
             "parameter": "Per-base error rate",
