@@ -21,7 +21,7 @@ For each training sample $s$, we can generate a counterfactual prior input by sa
 \mathcal{L}_{\mathrm{cf}}=\E_{(s,s')\sim M}\,w_{ss'}\big\|\hat\beta_{s,\ell}(F_s, X^{\mathrm{prior}}_s) - \hat\beta_{s,\ell}(F_s, X^{\mathrm{prior}}_{s'})\big\|^2.
 \label{eq:cf-loss}
 \end{equation}
-The planned implementation should report balance diagnostics for the matching variables and a sensitivity analysis over the tolerance implied by $\lambda_{\mathrm{cf}}$.
+The released torch SVI loop wires the counterfactual penalty through \texttt{TorchSVIConfig.counterfactual\_weight} (exercised in row A4 of \texttt{bench\_ablation\_matrix.csv}); balance diagnostics for the matching variables and a $\lambda_{\mathrm{cf}}$ sensitivity sweep remain follow-ups once real-data covariate metadata is wired through the loader.
 
 \subsection{mQTL anchor loss}
 For each anchor locus $\ell\in\mathcal{A}$ with a cis-mQTL variant $a(\ell)$, the observed genotype is sample-specific: $g_{s,a(\ell)}\in\{0,1,2\}$. The anchor should therefore constrain the sample-adjusted locus-level latent, not a single genotype-free population mean. We use

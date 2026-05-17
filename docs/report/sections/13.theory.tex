@@ -83,7 +83,7 @@ Fano's inequality gives the stated lower bound on the packing-index error probab
 \end{proof}
 
 \begin{remark}
-Proposition~\ref{prop:fano} links low mutual information between fragment bags and methylation to unavoidable estimation error. This motivates the planned stratified experiments by coverage, CpG-density or low-information proxies, chromatin state, GC, and mappability: these strata are empirical probes of where the fragment bag contains too little information for any estimator to recover $\beta$ accurately.
+Proposition~\ref{prop:fano} links low mutual information between fragment bags and methylation to unavoidable estimation error. The coverage-stratified Liu 2024 evaluation (Fig.~\ref{fig:coverage_strat}) is one empirical instance of this: HAVI-Methyl is the only method with positive Pearson $r$ in the multi-read interior stratum, where the FinaleMe-style HMM is anti-correlated with truth ($r=-0.05$) because its 2-cluster EM ceiling cannot extrapolate to non-binary methylation states. The corresponding within-stratum mutual information is the relevant quantity for closing the Fano gap in future deeper-WGBS panels.
 \end{remark}
 
 % ============================================================
