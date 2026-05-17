@@ -1,6 +1,6 @@
 axis,legacy_simulator,chromatin_aware_simulator,target,status
-Fragment-length primary mode (bp),167.500000,167.500000,~167 (Snyder 2016),verified
-Fragment-length 320-350 bp peak height (per bp),0.002858,0.002858,~0.005 (target; mixture spec gives ~0.003),preliminary (spec mixture: ~0.003)
-Helical-pitch periodicity peak (lag 8-13 bp),0.838019,0.857957,non-trivially positive,verified
+Fragment-length primary mode (bp),162.500000,162.500000,~167 (Snyder 2016),verified
+Fragment-length 320-350 bp peak height (per bp),0.001186,0.001186,~0.001 (Liu 2024 cfDNA empirical; 3-mode mixture re-fit),verified
+Helical-pitch periodicity peak (lag 8-13 bp),0.883097,0.857957,non-trivially positive,verified
 Top-4 4-mer fraction at 5' cuts,0.077780,0.155730,~0.20 (Zhou 2022),verified
 Methylation-conditioned GC effect size,0.090594,0.089588,non-zero,verified

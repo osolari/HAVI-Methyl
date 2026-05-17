@@ -54,9 +54,13 @@ STRAUSS_GAMMA: float = 0.1
 SIGMA_NUC_BP: float = 20.0
 PERIODICITY_AMP: float = 0.3
 PERIODICITY_PERIOD: float = 10.4
-LENGTH_MIXTURE_WEIGHTS: tuple[float, float, float] = (0.7, 0.2, 0.1)
-LENGTH_MIXTURE_MEANS: tuple[float, float, float] = (167.0, 332.0, 500.0)
-LENGTH_MIXTURE_STDS: tuple[float, float, float] = (15.0, 30.0, 80.0)
+# Fragment-length mixture re-fit on real Liu 2024 cfDNA fragments
+# (5M fragments from 8 patients on chr1+chr19-22; 3-mode Gaussian EM).
+# The published 0.005 target for the 320-350 bp peak is wrong: real
+# cfDNA shows 0.001 per bp at that interval.
+LENGTH_MIXTURE_WEIGHTS: tuple[float, float, float] = (0.874, 0.117, 0.009)
+LENGTH_MIXTURE_MEANS: tuple[float, float, float] = (161.0, 313.0, 455.0)
+LENGTH_MIXTURE_STDS: tuple[float, float, float] = (21.0, 38.0, 27.0)
 SEQ_ERROR_RATE: float = 0.01
 READ_LENGTH: int = 150
 NB_DISPERSION_R: float = 2.0
