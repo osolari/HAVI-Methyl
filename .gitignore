@@ -235,3 +235,4 @@ docs/report/main.out
 *.npz
 *.h5
 .DS_Store
+site/

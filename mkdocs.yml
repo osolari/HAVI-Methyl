@@ -1,0 +1,143 @@
+site_name: HAVI-Methyl
+site_description: >-
+  Hierarchical amortized variational inference for cfDNA methylation
+  prediction. Set Transformer + Conditional NSF flow posterior +
+  Beta-Binomial reconstruction trained end-to-end on real Liu 2024
+  paired cfDNA WGS/WGBS, with calibrated per-CpG posteriors and a
+  variance-weighted Dirichlet tissue-of-origin head.
+site_author: Omid Shams Solari
+repo_url: https://github.com/osolari/HAVI-Methyl
+repo_name: osolari/HAVI-Methyl
+edit_uri: edit/main/docs/website/
+
+docs_dir: docs
+site_dir: site
+
+not_in_nav: |
+  report/**
+  STATUS.md
+  IMPLEMENTATION_ROADMAP.md
+
+theme:
+  name: material
+  language: en
+  logo: assets/saim_logo.png
+  favicon: assets/favicon.ico
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - search.suggest
+    - search.highlight
+    - search.share
+    - toc.follow
+    - announce.dismiss
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/file-edit-outline
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Quickstart: quickstart.md
+      - Installation: installation.md
+      - Concepts: concepts.md
+  - User guide:
+      - Model architecture: architecture.md
+      - Datasets & loaders: datasets.md
+      - Calibration: calibration.md
+      - Tissue-of-origin: tissue.md
+      - Reproducibility: reproducibility.md
+  - Results:
+      - Headline real-data: results.md
+      - Synthetic recovery: results-synth.md
+      - Figures: figures.md
+  - Reference:
+      - API: api.md
+      - Manuscript: report.md
+      - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - attr_list
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.arithmatex:
+      generic: true
+  - toc:
+      permalink: true
+      toc_depth: 3
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_source: true
+            show_signature_annotations: true
+            members_order: source
+            docstring_style: numpy
+            heading_level: 3
+          paths:
+            - src
+
+extra_css:
+  - assets/css/saim.css
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/osolari/HAVI-Methyl
+      name: HAVI-Methyl on GitHub
+  generator: false
+  saim:
+    primary: "#32127A"
+    accent:  "#5B36B7"
+    bg_soft: "#D6CFE4"
