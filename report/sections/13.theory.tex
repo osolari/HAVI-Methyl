@@ -1,0 +1,89 @@
+\section{Theoretical Results}
+\label{sec:theory}
+
+This section collects formal results and proof-status caveats. Proposition~\ref{prop:elbo} is a standard complete result. Propositions~\ref{prop:identify-restated}, \ref{prop:vib}, and \ref{prop:svi} are conditional statements whose force depends on the stated assumptions and approximation quality. Propositions~\ref{prop:pooling} and~\ref{prop:fano} are formal clarifications that connect the hierarchy and information content to the experimental plan.
+
+\begin{proposition}[Validity of the ELBO]
+\label{prop:elbo}
+For any variational distribution $q$ in the family \eqref{eq:varfamily} absolutely continuous with respect to the prior, $\elbo(q)\le \log p(\mathcal{O})$ with equality iff $q=p(\cdot\mid \mathcal{O},F)$ in the model being optimized.
+\end{proposition}
+\begin{proof}
+Standard. $\log p(\mathcal{O})=\elbo(q)+\KL(q\|p(\cdot\mid \mathcal{O},F))\ge\elbo(q)$ by Gibbs' inequality, with equality iff the KL is zero almost everywhere.
+\end{proof}
+
+\begin{proposition}[Conditional identifiability under instrumental anchors]
+\label{prop:identify-restated}
+Under Assumption~\ref{ass:iv}, and in the population limit with correctly specified observation and recognition classes, the structural component of the sample-adjusted methylation latent induced by the anchor distribution is identifiable from the joint distribution of fragment observations, genotypes, and measured covariates. The VIB penalty separately controls information about the specified prior input as $\beta_{\mathrm{VIB}}\to\infty$ when a zero-leakage feasible representation exists.
+\end{proposition}
+\begin{proof}
+This restates Proposition~\ref{prop:identify}. Identification follows from the nonparametric IV moment equation under relevance, exclusion, independence, overlap, and completeness; the VIB statement follows from the variational mutual-information upper bound in \eqref{eq:vib}. The proposition is conditional on these assumptions and should be treated as a proof sketch for the proposed anchor strategy rather than an unconditional deconfounding guarantee.
+\end{proof}
+
+\begin{proposition}[Asymptotic VIB leakage]
+\label{prop:vib}
+Let $B(q)=\E_{X_{\mathrm{prior}}}[\KL(q_\phi(\zeta\mid X_{\mathrm{prior}})\|r(\zeta))]$ be the VIB upper bound and let $\eta_{\mathrm{leak}}(q)=I_q(\zeta;X_{\mathrm{prior}})$. If a feasible sequence of posteriors exists with $B(q)\to0$ and non-divergent reconstruction objective, then any sequence of global optima of $\elbo(q)-\beta_{\mathrm{VIB}}B(q)$ satisfies $\eta_{\mathrm{leak}}(q^*_{\beta_{\mathrm{VIB}}})\to0$ as $\beta_{\mathrm{VIB}}\to\infty$.
+\end{proposition}
+\begin{proof}
+The VIB upper bound gives $\eta_{\mathrm{leak}}(q)\le B(q)$ \citep{alemi2017vib}. If the optimum retained a positive lower bound on $B(q)$ as $\beta_{\mathrm{VIB}}\to\infty$, its regularized objective would eventually be worse than the feasible low-leakage sequence with bounded reconstruction. Hence optimal $B(q^*_{\beta_{\mathrm{VIB}}})$ must tend to zero, and so does $\eta_{\mathrm{leak}}$.
+\end{proof}
+
+\begin{corollary}[Finite-$\beta_{\mathrm{VIB}}$ comparison bound]
+\label{cor:vib-finite}
+Let $q^*_\beta$ maximize $\elbo(q)-\beta B(q)$, and let $q_0$ be any feasible reference posterior. If $\elbo(q)\le \elbo_{\max}$ over the feasible class, then
+\[
+\eta_{\mathrm{leak}}(q^*_\beta) \le B(q^*_\beta) \le B(q_0)+\frac{\elbo_{\max}-\elbo(q_0)}{\beta}.
+\]
+In particular, if a zero-leakage feasible reference exists, the upper bound is $O(1/\beta)$ up to its reconstruction gap.
+\end{corollary}
+\begin{proof}
+Optimality gives $\elbo(q^*_\beta)-\beta B(q^*_\beta)\ge \elbo(q_0)-\beta B(q_0)$. Rearranging yields $B(q^*_\beta)\le B(q_0)+[\elbo(q^*_\beta)-\elbo(q_0)]/\beta\le B(q_0)+[\elbo_{\max}-\elbo(q_0)]/\beta$. The leakage bound follows from $\eta_{\mathrm{leak}}\le B$.
+\end{proof}
+
+\begin{proposition}[Conformal marginal coverage]
+\label{prop:conformal-restated}
+For any joint distribution of $(F,\beta^*)$ and any model $q(\beta\mid F)$, if calibration and test points are exchangeable, the conformal set $C(F_{\mathrm{new}})$ defined in Section~\ref{sec:calibration} satisfies $\Pr(\beta^*_{\mathrm{new}}\in C(F_{\mathrm{new}}))\ge 1-\alpha$.
+\end{proposition}
+\begin{proof}
+This restates Proposition~\ref{prop:conformal}; the proof appears in Section~\ref{sec:calibration}.
+\end{proof}
+
+\begin{proposition}[Convergence of the surrogate non-conjugate natural-gradient SVI]
+\label{prop:svi}
+Let $\lambda^{(t)}$ denote the variational natural parameters of the population layer under the moment-matched update \eqref{eq:nat-update}, and suppose the Robbins-Monro conditions hold, stochastic gradients have bounded second moments, the surrogate moment-matching bias is either zero or vanishes asymptotically, and the encoder parameters remain in a compact regular set. Then the iterates converge almost surely to a stationary point of the corresponding surrogate regularized objective.
+\end{proposition}
+\begin{proof}
+Exact conjugate SVI convergence does not apply because the local layer is a flow and the likelihood is non-conjugate. The update can instead be viewed as stochastic approximation on the surrogate natural-gradient field induced by the moment-matched local expectations, following the non-conjugate VI analyses of \citet{khan2017cvi,lin2019natgrad}. Under bounded-variance stochastic gradients and vanishing approximation bias, Robbins-Monro stochastic approximation converges to the stationary set of the surrogate objective. The statement is therefore deliberately weaker than convergence to a global optimum of the exact full ELBO.
+\end{proof}
+
+\begin{proposition}[Variance reduction from hierarchical pooling]
+\label{prop:pooling}
+Consider the logit-scale Gaussian submodel with known sample shift and a noisy local observation $\tilde\eta_{s,\ell}\sim\N(\eta_{s,\ell},\tau_{\mathrm{obs}}^2)$, and suppose the population posterior for $\mu^{\mathrm{pop}}_\ell$ has variance $\hat\tau_{\mathrm{pop}}^2$. The posterior variance of the hierarchically pooled logit estimator is
+\[
+\Var(\hat\eta^{\mathrm{HAVI}}_{s,\ell})=\frac{\hat\tau_{\mathrm{pop}}^2\tau_{\mathrm{obs}}^2}{\hat\tau_{\mathrm{pop}}^2+\tau_{\mathrm{obs}}^2}\le \tau_{\mathrm{obs}}^2=\Var(\hat\eta^{\mathrm{indep}}_{s,\ell}),
+\]
+with strict inequality for finite $\hat\tau_{\mathrm{pop}}^2$. On the $\beta$ scale, the same comparison holds approximately by the delta method away from the boundaries.
+\end{proposition}
+\begin{proof}
+The logit-scale result is the conjugate Gaussian posterior-variance formula for combining a Gaussian prior with a Gaussian observation. The delta-method statement follows by multiplying both variances by $[\sigm'(\eta)]^2$ locally.
+\end{proof}
+
+\begin{proposition}[Information-theoretic recoverability lower bound]
+\label{prop:fano}
+Let $\{\beta_1,\dots,\beta_M\}\subset[0,1]$ be a packing with separation $\Delta$, let $W\sim\mathrm{Unif}\{1,\dots,M\}$ select $\beta_W$, and let $F$ be generated from $\beta_W$. For any estimator $\hat\beta(F)$, if $\hat W$ is the nearest packing point to $\hat\beta(F)$, then
+\[
+\Pr(\hat W\ne W) \ge 1 - \frac{I(W;F)+\log 2}{\log M},
+\]
+and
+\[
+\E[(\hat\beta-\beta_W)^2]\ge \frac{\Delta^2}{4}\left(1 - \frac{I(W;F)+\log 2}{\log M}\right).
+\]
+\end{proposition}
+\begin{proof}
+Fano's inequality gives the stated lower bound on the packing-index error probability \citep{cover2006information}. If $\hat W\ne W$, then the estimate is closer to another packing point than to the true one, which implies $|\hat\beta-\beta_W|\ge \Delta/2$. Multiplying the squared-error contribution $\Delta^2/4$ by the error-probability lower bound yields the result.
+\end{proof}
+
+\begin{remark}
+Proposition~\ref{prop:fano} links low mutual information between fragment bags and methylation to unavoidable estimation error. The coverage-stratified Liu 2024 evaluation (Fig.~\ref{fig:coverage_strat}) is one empirical instance of this: HAVI-Methyl is the only method with positive Pearson $r$ in the multi-read interior stratum, where the FinaleMe-style HMM is anti-correlated with truth ($r=-0.05$) because its 2-cluster EM ceiling cannot extrapolate to non-binary methylation states. The corresponding within-stratum mutual information is the relevant quantity for closing the Fano gap in future deeper-WGBS panels.
+\end{remark}
+
+% ============================================================

@@ -1,0 +1,63 @@
+\section{Full ELBO derivation}
+\label{app:elbo}
+
+This appendix derives the ELBO summarized in Section~\ref{sec:elbo}. We use $\mathcal{O}$ for likelihood-bearing observations and $F$ for fragment bags supplied to the recognition model.
+
+\subsection*{Starting point}
+Let $\bm Z=(\bm\mu^{\mathrm{pop}},\bdelta,\bm\eta)$ collect all latents on the logit scale. The marginal log-likelihood of the observed modalities $\mathcal{O}$ is
+\begin{equation}
+\log p(\mathcal{O}) = \log \int p(\mathcal{O},\bm Z)\,d\bm Z.
+\end{equation}
+Multiplying and dividing by $q(\bm Z)$ and applying Jensen's inequality gives
+\begin{equation}
+\log p(\mathcal{O}) \ge \E_q\!\left[\log\frac{p(\mathcal{O},\bm Z)}{q(\bm Z)}\right] \;=\; \elbo(q),
+\label{eq:appA-elbo-def}
+\end{equation}
+with equality if and only if $q(\bm Z)=p(\bm Z\mid \mathcal{O},F)$ almost everywhere in the optimized recognition model.
+
+\subsection*{Substituting the joint factorization}
+The joint factorizes as in \eqref{eq:joint}:
+\begin{equation}
+p(\mathcal{O},\bm Z) = \prod_\ell p(\mu^{\mathrm{pop}}_\ell)\,\prod_s p(\delta_s)\,\prod_{s,\ell} p(\eta_{s,\ell}\mid \mu^{\mathrm{pop}}_\ell,\delta_s)\,p(\mathcal{O}_{s,\ell}\mid\eta_{s,\ell}),
+\end{equation}
+and the variational family is
+\begin{equation}
+q(\bm Z) = \prod_\ell q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)\,\prod_s q_{\nu_s}(\delta_s)\,\prod_{s,\ell} q_\phi(\eta_{s,\ell}\mid F_{s,\ell};m_\ell,m_s^\delta).
+\end{equation}
+Substituting and grouping terms gives
+\begin{align}
+\elbo(q) =\;& \sum_{s,\ell}\E_q[\log p(\mathcal{O}_{s,\ell}\mid \eta_{s,\ell})]
+\;-\;\sum_\ell \KL\big(q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)\,\big\|\,p(\mu^{\mathrm{pop}}_\ell)\big) \nonumber\\
+&-\;\sum_s \KL\big(q_{\nu_s}(\delta_s)\,\big\|\,p(\delta_s)\big)
+\;-\;\sum_{s,\ell}\E_{q_{\lambda_\ell} q_{\nu_s}}\!\big[\KL\big(q_\phi(\eta_{s,\ell}\mid \cdot)\,\big\|\,p(\eta_{s,\ell}\mid\mu^{\mathrm{pop}}_\ell,\delta_s)\big)\big].
+\label{eq:appA-decomp}
+\end{align}
+This is the decomposition stated in \eqref{eq:elbo-decomp}.
+
+\subsection*{Reconstruction terms}
+For the aggregate pseudo-count form, the likelihood contribution is
+\begin{align}
+\log p(\mathcal{O}_{s,\ell}\mid\eta_{s,\ell})
+=\;& \log\BB(n^m_{s,\ell};n^{\mathrm{cpg}}_{s,\ell},\kappa\sigm(\eta),\kappa(1-\sigm(\eta)))\nonumber\\
+&+\sum_j \log\Cat(m_{s,\ell,j};\bpi(\sigm(\eta),c^{\mathrm{seq}}_\ell))\nonumber\\
+&+\log\NB(n^{\mathrm{frag}}_{s,\ell};r_\ell,\mu^{\mathrm{cov}}_{s,\ell}).
+\end{align}
+Terms are omitted when unavailable. The expectation $\E_{q_\phi}[\log p(\mathcal{O}\mid\eta)]$ is computed by Monte Carlo over $\eta=T_\phi(\epsilon;c_{s,\ell})$.
+
+\subsection*{Closed-form Gaussian-Gaussian KLs}
+For two univariate Gaussians,
+\begin{equation}
+\KL(\N(m,v)\,\|\,\N(\mu,\tau^2)) = \tfrac{1}{2}\!\left[\frac{v}{\tau^2} + \frac{(m-\mu)^2}{\tau^2} - 1 - \log\frac{v}{\tau^2}\right].
+\label{eq:appA-gauss-kl}
+\end{equation}
+Applied to the population layer with $q_{\lambda_\ell}=\N(m_\ell,v_\ell)$ and $p=\N(\mu_0,\tau_0^2)$, this gives the locus-wise KL contribution. Applied to the sample-shift layer with $q_{\nu_s}=\N(m_s^\delta,v_s^\delta)$ and $p=\N(0,\sigma_\delta^2)$, the analogous formula obtains.
+
+\subsection*{Flow KL by Monte Carlo}
+The conditional KL $\KL(q_\phi(\eta\mid c)\|p(\eta\mid\mu^{\mathrm{pop}},\delta))$ has no closed form because $q_\phi$ is a normalizing flow. A single-sample estimator is
+\begin{equation}
+\widehat{\KL} = \log q_\phi(\eta\mid c) - \log p(\eta\mid \mu^{\mathrm{pop}},\delta),\quad \eta = T_\phi(\epsilon;c),\;\epsilon\sim\N(0,1),
+\end{equation}
+where the flow log-density uses \eqref{eq:flow-density}.
+
+\subsection*{Tightness and gaps}
+Equality in \eqref{eq:appA-elbo-def} holds iff $q=p(\cdot\mid\mathcal{O},F)$. Within the structured family, the practical gap decomposes into a variational-family gap, an amortization gap, Monte Carlo/stochastic-optimization error, and any approximation introduced by the moment-matched population update. The simplified synthetic harness adds another gap because it uses a Gaussian empirical-Bayes posterior rather than the full flow-based family.

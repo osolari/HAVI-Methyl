@@ -1,0 +1,28 @@
+\section{Reparameterization gradients}
+\label{app:reparam}
+
+This appendix records the gradient estimators intended for the full HAVI-Methyl implementation. The released simplified harness does not implement every estimator below.
+
+\subsection*{Gaussian variational layers}
+For the population layer $q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)=\N(m_\ell,v_\ell)$, use $\mu^{\mathrm{pop}}_\ell=m_\ell+\sqrt{v_\ell}\,\xi$ with $\xi\sim\N(0,1)$. For a differentiable function $g$,
+\begin{equation}
+\nabla_{m_\ell}\E[g]=\E[\nabla_{\mu}g],\qquad
+\nabla_{v_\ell}\E[g]=\frac{1}{2\sqrt{v_\ell}}\E[\xi\,\nabla_{\mu}g],
+\end{equation}
+with the same form for $(m_s^\delta,v_s^\delta)$.
+
+\subsection*{Rational-quadratic spline and log-Jacobian}
+A neural-spline-flow block \citep{durkan2019nsf} is a monotone piecewise rational-quadratic transform $T:[-B,B]\to[-B,B]$ with knots $\{(x_k,y_k)\}_{k=0}^K$ and positive derivatives $\{d_k\}_{k=0}^K$. Within bin $k$, with $\xi_k=(x-x_k)/(x_{k+1}-x_k)$ and $s_k=(y_{k+1}-y_k)/(x_{k+1}-x_k)$,
+\begin{equation}
+T(x) = y_k + \frac{(y_{k+1}-y_k)\big(s_k\xi_k^2+d_k\xi_k(1-\xi_k)\big)}{s_k+(d_{k+1}+d_k-2s_k)\xi_k(1-\xi_k)}.
+\end{equation}
+The log-Jacobian is a sum over blocks and is differentiable in the spline parameters except at measure-zero bin boundaries. In practice this expression is supplied by a normalizing-flow library and checked by finite-difference tests.
+
+\subsection*{Sticking-the-landing}
+For a reparameterized sample $z=T_\phi(\epsilon)$, the gradient of an expectation can be written using pathwise terms. The score-like contribution from differentiating $\log q_\phi(z)$ through the sampling path has zero expectation under regularity conditions but can have high variance. Sticking-the-landing \citep{roeder2017stl} removes this contribution by using a stop-gradient copy for the score term while preserving the pathwise derivative of the model log-density. The implementation requirement is simple: stop gradient through the entropy/score component where the estimator calls for it, and verify unbiasedness against a non-STL estimator on small synthetic cases.
+
+\subsection*{Doubly-reparameterized gradient for IWAE}
+For IWAE weights $w_k=p(\mathcal{O},z_k)/q_\phi(z_k\mid c)$ and normalized weights $\tilde w_k=w_k/\sum_j w_j$, the naive encoder gradient suffers from the signal-to-noise issue described by \citet{rainforth2018iwaeSNR}. The DReG estimator of \citet{tucker2019dreg} uses reparameterized samples and stops gradients through the normalized outer weights in the encoder-gradient component. The coding agent should implement this using library-tested DReG formulas rather than hand-coded algebra and should include a unit test that compares signs and scales against the naive IWAE gradient for small $K$.
+
+\subsection*{Gradient-variance comparison}
+For small $K$, single-sample reparameterization with sticking-the-landing is the intended training default. For fine-tuning or evaluation with larger $K$, DReG-IWAE tightens the bound while controlling encoder-gradient variance. Both choices should be recorded in experiment metadata.

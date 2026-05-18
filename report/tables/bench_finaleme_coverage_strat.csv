@@ -1,0 +1,10 @@
+stratum,method,pearson_r,n_points
+β extreme (n_total≈1),FinaleMe-style HMM,0.14780628640867532,22443
+β extreme (n_total≈1),HAVI simplified (full),0.15296876458969258,22443
+β extreme (n_total≈1),HAVI-Methyl (full torch),0.6384308680259682,22443
+β interior (multi-read),FinaleMe-style HMM,-0.04946520539852057,37771
+β interior (multi-read),HAVI simplified (full),-0.048233609227839196,37771
+β interior (multi-read),HAVI-Methyl (full torch),0.27727262928357166,37771
+β middle (0.1–0.9),FinaleMe-style HMM,-0.03546904434212186,37437
+β middle (0.1–0.9),HAVI simplified (full),-0.03424859174674561,37437
+β middle (0.1–0.9),HAVI-Methyl (full torch),0.2567273553788428,37437

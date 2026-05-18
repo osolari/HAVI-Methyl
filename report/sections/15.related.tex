@@ -1,0 +1,22 @@
+\section{Related Work}
+\label{sec:related}
+
+\subsection{cfDNA fragmentomics}
+cfDNA fragmentomics has established that fragment length, nucleosome periodicity, end motifs, orientation, coverage, and chromatin context carry biological signal beyond total read depth. Foundational studies include nucleosome-positioning and tissue-of-origin analyses \citep{snyder2016,sun2015,moss2018}, DELFI-style genome-wide fragmentation profiles \citep{cristiano2019delfi}, end-motif work \citep{zhou2022}, and FinaleMe's direct use of fragmentomic features for methylation prediction \citep{liu2024finaleme}. HAVI-Methyl differs from per-sample HMM approaches by treating methylation as a hierarchical continuous latent with amortized posterior inference and calibrated uncertainty.
+
+\subsection{Variational Bayes}
+\citet{mackay2003} and \citet{beal2003} laid the foundations of variational Bayes for graphical models. \citet{hoffman2013svi} introduced stochastic VI for conditionally conjugate models; \citet{hoffmanblei2015ssvi} extended SVI to structured variational families; and \citet{titsias2014doublystoch,kucukelbir2017advi} addressed non-conjugate models. Reparameterized amortized inference \citep{kingma2014vae,rezende2014}, normalizing flows \citep{rezende2015flows,kingma2016iaf,durkan2019nsf}, IWAE \citep{burda2016iwae}, and DReG \citep{tucker2019dreg} provide the neural VI toolkit. \citet{khan2017cvi,lin2019natgrad} motivate the approximate non-conjugate natural-gradient updates used here, while \citet{alemi2017vib} and \citet{cremer2018amortization} motivate the VIB and amortization-gap components.
+
+\subsection{Causal and instrumental epigenetics}
+Mendelian-randomization and mQTL studies motivate the use of genotype anchors, but the assumptions required for identification are strong and population-structure-sensitive. We therefore treat mQTL anchors as conditional identification devices and practical regularizers rather than as automatic deconfounding. \citet{min2021mqtl} supplies mQTL resources; \citet{sanderson2022mr} reviews Mendelian-randomization methodology; and \citet{newey2003instrumental,darolles2011nonparametric} provide nonparametric IV completeness theory. Counterfactual augmentation is related to deep structural causal modeling and perturbation modeling \citep{pawlowski2020dscm,kaddour2022causalml,lotfollahi2023cpa}.
+
+\subsection{Methylation foundation models and long-range DNA encoders}
+CpGPT \citep{cpgpt2024} and MethylGPT \citep{methylgpt2024} are downstream consumers of methylation values, not direct replacements for a WGS-fragment methylation predictor. Long-range DNA encoders such as HyenaDNA \citep{nguyen2023hyenadna}, Caduceus \citep{schiff2024caduceus}, and related sequence models provide candidate frozen sequence-context embeddings. Which encoder is best for HAVI-Methyl remains an empirical benchmark question.
+
+\subsection{Probabilistic methylation prediction and deconvolution}
+DeepCpG \citep{angermueller2017deepcpg}, METHimpute \citep{taudt2018methimpute}, and MethylBERT \citep{lee2018methylbert} are important methylation-prediction precedents but differ in input modality, uncertainty treatment, or hierarchical pooling. BPRMeth \citep{kapourani2018bprmeth} and Melissa \citep{kapourani2019melissa} are closer to the Bayesian hierarchical spirit. Deconvolution tools such as CelFiE \citep{caggiano2021celfie}, CelFEER \citep{keukeleire2023celfeer}, and MetDecode \citep{decroos2024metdecode} consume methylation measurements or predictions and are downstream or complementary to HAVI-Methyl's WGS-to-methylation task.
+
+\subsection{cfDNA tumor fraction and copy-number}
+A complementary line of work estimates tumor fraction and copy-number directly from cfDNA WGS without going through methylation. ichorCNA \citep{adalsteinsson2017ichor} and PureCN \citep{riester2016purecn} are natural covariate or joint-modeling candidates. HAVI-Methyl is complementary: CNV-corrected coverage can be supplied to the Negative-Binomial coverage likelihood, and tumor-fraction estimates can enter the per-sample shift or tissue-of-origin head.
+
+% ============================================================

@@ -1,0 +1,42 @@
+% Common math shortcuts for the template.
+\usepackage{amsmath,amssymb,amsfonts,amsthm,mathtools,bm}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\KL}{\mathrm{KL}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\abs}[1]{\left\lvert #1 \right\rvert}
+\newcommand{\set}[1]{\left\{ #1 \right\}}
+\newcommand{\paren}[1]{\left( #1 \right)}
+\newcommand{\bracket}[1]{\left[ #1 \right]}
+\newcommand{\ip}[2]{\left\langle #1, #2 \right\rangle}
+\newcommand{\myeq}{\stackrel{\mathclap{\small\mbox{def}}}{=}}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+% ----- HAVI-Methyl extensions -----
+\providecommand{\LN}{\mathrm{LogitNormal}}
+\providecommand{\Bet}{\mathrm{Beta}}
+\providecommand{\BB}{\mathrm{BetaBin}}
+\providecommand{\NB}{\mathrm{NegBin}}
+\providecommand{\Cat}{\mathrm{Cat}}
+\providecommand{\Dir}{\mathrm{Dir}}
+\providecommand{\sigm}{\sigma}
+\providecommand{\logit}{\mathrm{logit}}
+\providecommand{\bbeta}{\boldsymbol{\beta}}
+\providecommand{\bdelta}{\boldsymbol{\delta}}
+\providecommand{\btheta}{\boldsymbol{\theta}}
+\providecommand{\bphi}{\boldsymbol{\phi}}
+\providecommand{\bpi}{\boldsymbol{\pi}}
+\providecommand{\bz}{\mathbf{z}}
+\providecommand{\elbo}{\mathcal{L}}
+\providecommand{\N}{\mathcal{N}}

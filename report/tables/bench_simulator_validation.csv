@@ -1,0 +1,6 @@
+axis,current_status,expected_output,publication_action
+Fragment-length primary mode (bp),verified,~167 (Snyder 2016),ready for publication
+Fragment-length 320-350 bp peak height (per bp),verified,~0.001 (Liu 2024 cfDNA empirical; 3-mode mixture re-fit),ready for publication
+Helical-pitch periodicity peak (lag 8-13 bp),verified,non-trivially positive,ready for publication
+Top-4 4-mer fraction at 5' cuts,verified,~0.20 (Zhou 2022),ready for publication
+Methylation-conditioned GC effect size,verified,non-zero,ready for publication

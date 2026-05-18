@@ -1,0 +1,39 @@
+\section{Tissue-of-Origin Head}
+\label{sec:too}
+
+\subsection{Joint Dirichlet output with posterior integration}
+For tissue-of-origin (ToO) deconvolution, the proposed full model attaches a head that takes posterior summaries of the sample-level methylation vector and a reference matrix $R\in[0,1]^{L\times T}$, where $R_{\ell t}$ is the reference methylation level of tissue $t$ at locus $\ell$. The head outputs a Dirichlet posterior on tissue fractions,
+\begin{equation}
+\bm{\pi}_s\sim\Dir(\bm{\alpha}_s),\quad \bm{\alpha}_s = \operatorname{softplus}(W_R\,\E_q[\bbeta_s] + b_R)+\epsilon_\alpha,
+\end{equation}
+with a small $\epsilon_\alpha>0$ for numerical stability. For a fixed tissue-fraction draw or posterior mean $\bar\pi_s$, the reference-predicted methylation at locus $\ell$ is $R_{\ell\cdot}\bar\pi_s$. The expected Gaussian reference likelihood is
+\begin{equation}
+\mathcal{L}_{\mathrm{ToO}}(s) = \sum_\ell \E_{q(\beta_{s,\ell})}\!\big[\log\N(\beta_{s,\ell};\,R_{\ell\cdot}\bar\pi_s,\,\sigma_R^2)\big],
+\end{equation}
+which under $q(\beta_{s,\ell})\approx\N(\hat\mu_{s,\ell},\hat\sigma^2_{s,\ell})$ becomes
+\begin{equation}
+\mathcal{L}_{\mathrm{ToO}}(s) = -\frac{1}{2}\sum_\ell\left[\log(2\pi\sigma_R^2)+\frac{(\hat\mu_{s,\ell}-R_{\ell\cdot}\bar\pi_s)^2+\hat\sigma^2_{s,\ell}}{\sigma_R^2}\right].
+\label{eq:too-expected}
+\end{equation}
+This is an expected log-likelihood, not a marginal Gaussian likelihood with inflated variance. Integrating over $q(\beta)$ in this way propagates per-CpG uncertainty into the tissue-fraction objective instead of binarizing methylation predictions.
+
+\subsection{HDP nonparametric extension}
+For novel-tissue discovery, the manuscript replaces the finite Dirichlet by a hierarchical Dirichlet process \citep{teh2006hdp,bleijordan2006variationaldp}: the tissue mixture is $\sum_{k=1}^\infty \pi_{s,k}\delta_{\theta_k}$ with $\bm\pi_s\sim\mathrm{GEM}(\alpha)$ and $\theta_k\sim H$. The released \texttt{hdp\_truncated\_deconvolve} implementation uses a variational truncation at $T_{\max}=64$ and is included as a control in Fig.~\ref{fig:loyfer_loo} -- on the Loyfer U25 panel HDP lands between the FinaleMe-binarized and lstsq baselines (LOO mean RMSE $0.035$ vs $0.028$ vs $0.038$), validating the stick-breaking blend without yet beating the variance-weighted Dirichlet head. Pruning components by posterior mass and diagnosing truncation bias near the final stick remain open follow-ups.
+
+\paragraph{Joint training inside \texttt{fit\_svi\_torch}.} The variance-weighted Dirichlet head also runs as a joint training term inside the torch SVI loop when the caller passes \texttt{tissue\_reference} (the $T\times L$ panel), \texttt{tissue\_target} (the ground-truth $S\times T$ mixture), and \texttt{tissue\_weight}~$>0$. On each mini-batch the head solves a differentiable \texttt{torch.linalg.lstsq} on the locus subset to recover $\hat\pi$, then adds $\lambda_{\mathrm{ToO}}\|\hat\pi-\pi_{\mathrm{true}}\|^2$ to the total loss. The post-hoc head of Sec.~\ref{sec:benchmark:real} is recovered by leaving \texttt{tissue\_weight}=0.
+
+\subsection{End-to-end training}
+We write the full objective as a maximization problem:
+\begin{equation}
+\mathcal{J}_{\mathrm{total}} = \elbo + \lambda_{\mathrm{ToO}}\mathcal{L}_{\mathrm{ToO}}
+- \beta_{\mathrm{VIB}}\mathcal{B}_{\mathrm{VIB}}
+- \lambda_{\mathrm{cf}}\mathcal{L}_{\mathrm{cf}}
+- \lambda_{\mathrm{mQTL}}\mathcal{L}_{\mathrm{mQTL}}
+- \lambda_{\mathrm{dom}}\mathcal{L}_{\mathrm{dom}},
+\label{eq:total-objective}
+\end{equation}
+where $\mathcal{B}_{\mathrm{VIB}}$ is the VIB upper bound in \eqref{eq:vib}, $\mathcal{L}_{\mathrm{cf}}$ and $\mathcal{L}_{\mathrm{mQTL}}$ are positive penalties, and $\mathcal{L}_{\mathrm{dom}}$ denotes the adversarial domain loss with the sign implemented by gradient reversal. If the implementation minimizes a loss instead, it should minimize $-\mathcal{J}_{\mathrm{total}}$ with the corresponding sign changes. Default planning weights are reported in Appendix~\ref{app:hparams}.
+
+\paragraph{Real-data evaluation.} The variance-weighted Dirichlet head was evaluated on the published Loyfer/UXM\_deconv U25 hg38 panel ($T=36$ cell types $\times$ $L=900$ marker blocks). On the leave-one-tissue-out stress test (Sec.~\ref{sec:benchmark:real}, Figs.~\ref{fig:loyfer_loo} and~\ref{fig:loyfer_per_tissue}), the variance-weighted head achieves an aggregate LOO mean RMSE of $0.017$ vs. $0.028$ for continuous least squares and $0.038$ for FinaleMe-binarized; the per-tissue breakdown shows HAVI is shortest at every one of the $36$ cell types (median gain $+0.011$ over continuous lstsq, one adverse tissue Eryth-prog trailing by $0.011$). The HDP-truncated head with $T_{\max}=64$ is reported in the same figure as a control. Joint training of the head inside the torch SVI loop is an open follow-up (Sec.~\ref{sec:discussion}).
+
+% ============================================================

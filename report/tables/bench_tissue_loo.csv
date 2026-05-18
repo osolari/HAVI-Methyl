@@ -1,0 +1,5 @@
+method,tissue_fraction_rmse,worst_tissue_rmse,loo_mean_rmse,loo_worst_rmse,_status
+FinaleMe-binarized + QP,0.03674368442497019,0.04504083866161048,0.037656639577714944,0.03808247424529681,"Loyfer 2023 (T=36/36, L=900/900, atlas=data/loyfer_panel/Atlas.U25.l4.hg38.tsv)"
+Continuous lstsq,0.02730380482338223,0.036392726219535224,0.027988248174746433,0.02838468228172054,"Loyfer 2023 (T=36/36, L=900/900, atlas=data/loyfer_panel/Atlas.U25.l4.hg38.tsv)"
+HAVI-Methyl Dirichlet head,0.016944449425720123,0.026493948181673554,0.017435982383924225,0.01779710772183863,"Loyfer 2023 (T=36/36, L=900/900, atlas=data/loyfer_panel/Atlas.U25.l4.hg38.tsv)"
+HDP-truncated (T_max=64),0.032897837617743744,0.054942924695286804,0.034678599686186355,0.03627677377955948,"Loyfer 2023 (T=36/36, L=900/900, atlas=data/loyfer_panel/Atlas.U25.l4.hg38.tsv)"

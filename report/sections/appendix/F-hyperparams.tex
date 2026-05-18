@@ -1,0 +1,47 @@
+\section{Hyperparameter table}
+\label{app:hparams}
+The columns separate \emph{full-model defaults} as documented in the body sections from \emph{released-implementation values} actually used by \texttt{TorchSVIConfig} in \texttt{fit\_svi\_torch}. Rows whose released value differs from the full-model planning value reflect a deliberate trade-off (e.g., Gaussian head over flow head for stability on the Liu 2024 GPU run) and are marked accordingly.
+\begin{center}
+\small
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llll}
+\toprule
+Symbol / setting & Full-model planning value & Released-implementation value & Description\\
+\midrule
+\multicolumn{4}{l}{\emph{Model priors}}\\
+$\mu_0,\tau_0$ & $0,2.0$ & warm-start from logit$(\hat\beta_\ell)$ per locus & Population logit prior\\
+$\sigma_\delta$ & $0.5$ & $0.5$ (\texttt{sigma\_delta}) & Sample-shift std\\
+$\sigma_\eta$ & $0.8$ & $0.6$ (\texttt{sigma\_eta}) & Per-(s,$\ell$) latent std\\
+$\kappa$ & $20$ & $20$ (\texttt{kappa}) & Beta-Binomial concentration\\
+\midrule
+\multicolumn{4}{l}{\emph{Regularization weights}}\\
+$\beta_{\mathrm{VIB}}$ & tune on validation & $0.3$ (A2--A5 stress test) & VIB weight\\
+$\lambda_{\mathrm{cf}}$ & tune on validation & wired via \texttt{counterfactual\_weight} & Counterfactual invariance\\
+$\lambda_{\mathrm{mQTL}}$ & tune on validation & wired via \texttt{mqtl\_weight} (no anchors yet) & mQTL anchor weight\\
+$\lambda_{\mathrm{ToO}}$ & tune on validation & post-hoc Dirichlet head (Sec.~\ref{sec:too}) & Tissue loss weight\\
+$\lambda_{\mathrm{dom}}$ & tune on validation & GRL + sample-id discriminator (\texttt{adversarial\_weight}) & Adversarial weight; true gradient-reversal layer over a small MLP discriminator\\
+\midrule
+\multicolumn{4}{l}{\emph{Architecture}}\\
+$d_c$ & $128$ & $32$ (\texttt{hidden}; A10G default) & Encoder hidden dim\\
+$L_e$ & $2$ & $2$ (\texttt{num\_layers}) & ISAB layers\\
+$m$ & $64$ & $16$ (\texttt{num\_inducing}; A10G default) & ISAB inducing points\\
+$K$ flow blocks & $6$ & Gaussian head for headline result; flow head available (\texttt{posterior="flow"}) & NSF stack depth\\
+NSF bins & $8$ & $8$ knots, zero-init, tail-linear extension (when flow active) & Spline knots\\
+$T_{\max}$ & $64$ & $64$ (\texttt{hdp\_truncated\_deconvolve}) & HDP truncation\\
+\midrule
+\multicolumn{4}{l}{\emph{Optimization}}\\
+LR encoder & $10^{-3}$ & $5\times 10^{-3}$ (\texttt{lr}) & AdamW\\
+Weight decay & $10^{-4}$ & $10^{-2}$ (PyTorch AdamW default) & AdamW\\
+$\rho_t$ & $(t+1)^{-0.6}$ & $(t+1)^{-0.6}$ (\texttt{rho\_exponent}) & Natural gradients\\
+$|B_s|$ & $8$ & $16$ for Liu 2024 GPU run; $4$ default & Sample mini-batch size\\
+$|B_\ell|$ & $4096$ & $128$ for Liu 2024 GPU run; $32$ default & Locus mini-batch size\\
+$K_{\mathrm{IWAE}}$ & $1$ main / $8$ fine-tune & $4$ for Liu 2024 GPU run (\texttt{k\_iwae}) & IWAE sample count\\
+$g_{\mathrm{clip}}$ & $5.0$ & not implemented (AdamW only) & Gradient clip\\
+\midrule
+\multicolumn{4}{l}{\emph{Data protocol}}\\
+Train/val/test split & by individual, plus chromosome holdout & even/odd sample-index split for DMR call (synthetic ablation matrix); full panel for Liu 2024 r/AUC/ECE & Benchmark split\\
+Held-out chromosomes & $\{1,22\}$ or equivalent & high-variance panel built on chr 1, 19--22 (\texttt{build\_high\_variance\_panel.py}) & Genomic holdout\\
+\bottomrule
+\end{tabular}%
+}
+\end{center}

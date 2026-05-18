@@ -1,0 +1,75 @@
+\section{Synthetic Experiments}
+\label{sec:synth}
+
+We use the released chromatin-aware simulator to produce $S=12$ synthetic samples across $L=300$ loci at coverages $\{0.1\times,1\times,5\times,30\times\}$, and compare a simplified HAVI-Methyl variant against a FinaleMe-style binary-emission baseline. All numbers reported below are taken directly from a single execution of the released code with random seed $20260429$, complemented by $N=20$-seed bootstrap intervals in Sec.~\ref{sec:multiseed} and Fig.~\ref{fig:multiseed}. The simplified HAVI-Methyl variant uses a Gaussian posterior and empirical-Bayes hierarchical fit on top of the same per-fragment classifier used by the baseline. The full Set Transformer + Gaussian-flow head torch SVI training stack is evaluated on the real Liu 2024 paired data in Sec.~\ref{sec:benchmark:real}; the conformal-wrapper and mQTL-anchor toggles are exercised in the synthetic ablation matrix (\texttt{bench\_ablation\_matrix.csv}, rows A0--A5).
+
+\subsection{Per-CpG \texorpdfstring{$\beta$}{beta} recovery}
+Table~\ref{tab:recovery} reports per-CpG Pearson correlation and root-mean-square error of predicted versus ground-truth $\beta$ across coverages. The simplified HAVI-Methyl variant improves Pearson correlation at every coverage level, with the largest absolute gains in the low-coverage regime where the hierarchical population prior contributes the most. Figure~\ref{fig:recovery} shows the per-locus scatter of true versus predicted $\beta$ for both methods at each coverage.
+
+\begin{table}[htbp]
+\centering
+\caption{Per-CpG $\beta$ recovery in the released simplified synthetic harness: Pearson $r$ (higher better) and RMSE (lower better) on $S=12$ samples and $L=300$ loci.}
+\label{tab:recovery}
+\begin{tabular}{lcccc cccc}
+\toprule
+& \multicolumn{4}{c}{Pearson $r$} & \multicolumn{4}{c}{RMSE}\\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+Method & $0.1\times$ & $1\times$ & $5\times$ & $30\times$ & $0.1\times$ & $1\times$ & $5\times$ & $30\times$\\
+\midrule
+FinaleMe-style HMM & $0.162$ & $0.524$ & $0.768$ & $0.961$ & $0.310$ & $0.312$ & $0.187$ & $0.098$\\
+HAVI-Methyl (simplified) & $\mathbf{0.333}$ & $\mathbf{0.782}$ & $\mathbf{0.868}$ & $\mathbf{0.964}$ & $\mathbf{0.296}$ & $\mathbf{0.227}$ & $\mathbf{0.141}$ & $\mathbf{0.096}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/recovery_scatter.png}
+\caption{Per-locus scatter of true versus predicted $\beta$ at each coverage in the simplified synthetic harness. Both methods approach the diagonal as coverage increases; the simplified HAVI-Methyl variant benefits more at low coverage.}
+\label{fig:recovery}
+\end{figure}
+
+\subsection{Low-information locus recovery}
+The current code uses the bottom 30\% of local methylation variability, computed as the standard deviation of the population $\beta$ track in a $\pm 5$-locus window, as a synthetic proxy for low-information or CpG-poor behavior. On this subset, the FinaleMe-style baseline achieves Pearson correlations of $0.224$, $0.588$, $0.833$, and $0.978$ across the four coverages, while the simplified HAVI-Methyl variant achieves $0.398$, $0.828$, $0.906$, and $0.980$. This proxy should be replaced by an explicit CpG-density or genomic-context stratification in the real-data benchmark.
+
+\subsection{Calibration}
+At nominal $90\%$ posterior credible intervals, the simplified HAVI-Methyl variant achieves empirical coverage of $0.471$, $0.597$, $0.671$, and $0.415$ at the four coverages on the full locus set, with mean interval widths of $0.512$, $0.442$, $0.280$, and $0.128$. The empirical coverage undershoots the nominal rate, especially at low and high coverage, which is expected for the simplified Gaussian-posterior variant. The conformal wrapper of Section~\ref{sec:calibration} is the intended calibration mechanism for production evaluation; these raw intervals should not be treated as demonstrated conformal calibration.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.55\textwidth]{figures/calibration.png}
+\caption{Calibration curve at $5\times$ coverage under the released simplified-Gaussian variant. The dashed line is ideal coverage. Production evaluation should use the normalizing-flow posterior plus a split-conformal wrapper.}
+\label{fig:calibration}
+\end{figure}
+
+\subsection{Identifiability stress test}
+We synthesize a buffy-coat prior input correlated with disease status by adding a $0.25$ shift on the $\beta$ scale at $25\%$ of loci for half of the $12$ samples. We measure prior attribution as the partial $R^2$ of the prior input in a regression of predicted $\beta$ onto the joint of prior input and ground truth. Without VIB regularization the prior accounts for $5.93\%$ of the predicted signal; adding VIB regularization at $\beta_{\mathrm{VIB}}=0.3$ reduces this to $0.62\%$; adding mQTL anchors on top reduces it further to $0.037\%$. These synthetic reductions are consistent with the intended leakage-control mechanisms, but they are not a proof of real-data identifiability.
+
+\subsection{Tissue-fraction recovery}
+Across mixtures of three synthetic tissues, the simplified continuous deconvolution proxy achieves tissue-fraction RMSE of $0.007$ versus $0.129$ for a FinaleMe-derived binarize-and-deconvolve baseline. The result illustrates the cost of binarization in a synthetic setting. It should not be read as a completed evaluation of the full Dirichlet or HDP tissue-of-origin head in Section~\ref{sec:too}.
+
+\subsection{Surrogate objective trajectory}
+Figure~\ref{fig:elbo} shows the per-iteration ELBO trajectory from the released torch SVI loop (\texttt{fit\_svi\_torch}) on real Liu 2024 paired data with the Beta-Binomial trials parameter correctly set to WGBS read coverage. The Gaussian-head objective decreases monotonically over 200 iterations on an A10G GPU and per-iteration Pearson $r$ against the WGBS empirical $\beta$ rises in lockstep, terminating at $r=0.455$ versus a FinaleMe-style HMM baseline of $r=0.078$ on the same panel (cf.\ Section~\ref{sec:benchmark:real}).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/elbo_trajectory.png}
+\caption{ELBO and Pearson-$r$ training curves of \texttt{fit\_svi\_torch} on real Liu 2024 cfDNA paired data (200 iterations on an A10G GPU). Snapshots taken every 20 iterations; final $r$ matches the headline real-data row of \texttt{bench\_finaleme\_realdata.csv}.}
+\label{fig:elbo}
+\end{figure}
+
+\subsection{Multi-seed recovery}
+\label{sec:multiseed}
+Figure~\ref{fig:multiseed} reports the recovery experiment across $N=20$ random seeds via \texttt{scripts/bench\_multiseed\_recovery.py}. HAVI-Methyl (simplified) beats the FinaleMe-style HMM at every coverage with non-overlapping $90\%$ bootstrap intervals at $0.1\times$, $1\times$, and $5\times$; medians are $0.357$ vs $0.191$ at $0.1\times$, $0.790$ vs $0.520$ at $1\times$, $0.901$ vs $0.826$ at $5\times$, and $0.973$ vs $0.970$ at $30\times$ (the regime where naive averaging is already near-perfect). The canonical seed-$20260429$ point estimates of the previous subsection fall inside the $90\%$ band at every coverage. Full sidecar table at \texttt{tables/tab\_recovery\_multiseed.csv}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.75\textwidth]{figures/multiseed_recovery.png}
+\caption{Multi-seed ($N=20$) Pearson $r$ vs.\ fragment-bag coverage. Bands are 90\% bootstrap intervals from \texttt{tab\_recovery\_multiseed.csv}; HAVI-Methyl bands do not overlap the FinaleMe bands at $0.1\times$, $1\times$, or $5\times$.}
+\label{fig:multiseed}
+\end{figure}
+
+\subsection{Caveats and ablation pointer}
+The synthetic-experiment numbers above are reduced-scale point estimates with bounded depth from the simplified harness. Full ablations of the Set Transformer encoder, normalizing-flow posterior, IWAE objective, VIB penalty, mQTL anchors, conformal wrapper, and tissue head are reported in Section~\ref{sec:benchmark} on real data; the corresponding torch SVI training curves are tabulated in \texttt{tables/bench\_torch\_svi.csv} and the per-stratum gain on Liu 2024 is shown in Fig.~\ref{fig:coverage_strat}.
+
+% ============================================================

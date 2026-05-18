@@ -1,0 +1,84 @@
+\section{Extended results}
+\label{app:extres}
+
+This appendix collects extended synthetic-experiment metrics from the released harness at random seed $20260429$, with multi-seed ($N=20$) bootstrap intervals from \texttt{tab\_recovery\_multiseed.csv}. The real-data extended numbers live in the main body (Sec.~\ref{sec:benchmark:real}) and in \texttt{bench\_finaleme\_realdata.csv}, \texttt{bench\_loyfer\_loo\_per\_tissue.csv}, and \texttt{bench\_finaleme\_coverage\_strat.csv}.
+
+\subsection*{Per-coverage detail}
+\begin{table}[htbp]
+\centering\small
+\caption{Extended simplified-harness synthetic recovery results. Pearson $r$, RMSE, MAE, raw 90\%-interval coverage and width, and low-information-proxy $r$ across coverage levels.}
+\label{tab:ext-recovery}
+\begin{tabular}{llcccccc}
+\toprule
+Coverage & Method & Pearson $r$ & RMSE & MAE & 90\% cov & 90\% width & Low-info $r$ \\
+\midrule
+$0.1\times$ & FinaleMe-style & $0.162$ & $0.310$ & $0.271$ & $0.796$ & $0.819$ & $0.224$ \\
+$0.1\times$ & HAVI-Methyl simplified & $0.333$ & $0.296$ & $0.262$ & $0.471$ & $0.512$ & $0.398$ \\
+$1\times$ & FinaleMe-style & $0.524$ & $0.312$ & $0.250$ & $0.448$ & $0.412$ & $0.588$ \\
+$1\times$ & HAVI-Methyl simplified & $0.782$ & $0.227$ & $0.196$ & $0.597$ & $0.442$ & $0.828$ \\
+$5\times$ & FinaleMe-style & $0.768$ & $0.187$ & $0.143$ & $0.657$ & $0.361$ & $0.833$ \\
+$5\times$ & HAVI-Methyl simplified & $0.868$ & $0.141$ & $0.113$ & $0.671$ & $0.280$ & $0.906$ \\
+$30\times$ & FinaleMe-style & $0.961$ & $0.098$ & $0.082$ & $0.554$ & $0.183$ & $0.978$ \\
+$30\times$ & HAVI-Methyl simplified & $0.964$ & $0.096$ & $0.081$ & $0.415$ & $0.128$ & $0.980$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Identifiability ablation}
+\begin{table}[htbp]
+\centering\small
+\caption{Synthetic prior-leakage attribution under three regularization regimes. Lower is better.}
+\label{tab:ext-ident}
+\begin{tabular}{lc}
+\toprule
+Configuration & Partial $R^2$ of prior input \\
+\midrule
+No regularization (VIB off, mQTL off) & $5.93\%$ \\
+VIB only ($\beta_{\mathrm{VIB}}=0.3$) & $0.62\%$ \\
+VIB + mQTL anchors & $0.037\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The reduction across regimes is consistent with the intended leakage-control mechanism. It is not a replacement for real-data IV diagnostics or subgroup leakage checks.
+
+\subsection*{Tissue-fraction recovery}
+\begin{table}[htbp]
+\centering\small
+\caption{Synthetic three-tissue continuous-deconvolution proxy. Lower is better.}
+\label{tab:ext-tissue}
+\begin{tabular}{lc}
+\toprule
+Method & Tissue-fraction RMSE \\
+\midrule
+FinaleMe-binarized + QP deconvolution & $0.129$ \\
+HAVI-Methyl simplified continuous proxy & $0.007$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The result illustrates the cost of binarization in the simplified synthetic setting. The full Dirichlet-head evaluation on the published Loyfer/UXM\_deconv U25 panel is in Sec.~\ref{sec:benchmark:real} (HAVI Dirichlet head wins LOO RMSE at every one of the $36$ cell types).
+
+\subsection*{Multi-seed recovery sidecar}
+\begin{table}[htbp]
+\centering\small
+\caption{Per-coverage Pearson $r$ from $N=20$ random seeds. Median, $5$th and $95$th percentiles from \texttt{tab\_recovery\_multiseed.csv}. HAVI-Methyl medians do not overlap the FinaleMe-style $90\%$ band at $0.1\times$, $1\times$, and $5\times$.}
+\label{tab:ext-multiseed}
+\begin{tabular}{llccc}
+\toprule
+Coverage & Method & Median $r$ & $p_5$ & $p_{95}$ \\
+\midrule
+$0.1\times$ & FinaleMe-style & $0.191$ & $0.156$ & $0.242$ \\
+$0.1\times$ & HAVI-Methyl    & $0.357$ & $0.246$ & $0.444$ \\
+$1\times$   & FinaleMe-style & $0.520$ & $0.438$ & $0.589$ \\
+$1\times$   & HAVI-Methyl    & $0.790$ & $0.691$ & $0.829$ \\
+$5\times$   & FinaleMe-style & $0.826$ & $0.765$ & $0.893$ \\
+$5\times$   & HAVI-Methyl    & $0.901$ & $0.849$ & $0.947$ \\
+$30\times$  & FinaleMe-style & $0.970$ & $0.949$ & $0.982$ \\
+$30\times$  & HAVI-Methyl    & $0.973$ & $0.953$ & $0.984$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Sensitivity analysis status}
+Sensitivity sweeps over $(\kappa,\sigma_\eta,\sigma_\delta)$ remain an open follow-up. The released code exposes all three as \texttt{TorchSVIConfig} fields so a sweep harness is a thin script over \texttt{fit\_svi\_torch}; the cost is one $\sim$80~min A10G run per grid point at the current $S{=}77 \times L{=}782$ panel size.

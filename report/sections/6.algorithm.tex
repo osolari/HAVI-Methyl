@@ -1,0 +1,51 @@
+\section{Inference Algorithm}
+\label{sec:algo}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\DontPrintSemicolon
+\caption{HAVI-Methyl SVI training (full proposed implementation)}
+\label{alg:svi}
+\KwIn{Fragment bags $F_{s,\ell}$; available observations $\mathcal{O}_{s,\ell}$; optional mQTL anchors, counterfactual prior inputs, and tissue-reference panels; hyperparameters $(\mu_0,\tau_0,\sigma_\delta,\sigma_\eta,\kappa,\beta_{\mathrm{VIB}},\lambda_{\mathrm{cf}},\lambda_{\mathrm{mQTL}},\lambda_{\mathrm{ToO}})$}
+\KwOut{Variational parameters $(\lambda,\nu,\phi)$ and trained auxiliary heads}
+Initialize $\lambda_\ell\leftarrow$ empirical-Bayes from a non-test population atlas (or $(\mu_0,\tau_0^2)$ default); $\nu_s\leftarrow(0,\sigma_\delta^2)$; encoder $\phi$ from optional warm-start (Section~\ref{ssec:warmstart})\;
+\For{$t=1,\dots,T$}{
+  Sample mini-batches of samples $B_s\subset\{1,\dots,S\}$ and loci $B_\ell\subset\{1,\dots,L\}$\;
+  Compute context $c_{s,\ell}$ via ISAB/PMA fragment encoder plus sequence encoder for $(s,\ell)\in B_s\times B_\ell$\;
+  Sample $\epsilon\sim\N(0,1)$ and set $\eta_{s,\ell}=T_\phi(\epsilon;c_{s,\ell})$\;
+  Compute $\widehat{\elbo}$ from \eqref{eq:elbo-decomp} with Table~\ref{tab:rescale} rescaling and available-modality masks\;
+  Add approved auxiliary terms: VIB penalty, counterfactual penalty, mQTL anchor penalty, and ToO likelihood when their inputs are present\;
+  Apply local-KL annealing by multiplying the local KL by $\min(t/T_{\mathrm{anneal}},1)$\;
+  Update neural parameters $\phi$ using AdamW learning rate $\alpha_\phi$ with gradient clipping at $g_{\mathrm{clip}}=5.0$\;
+  Update $\lambda_\ell\gets(1-\rho_t)\lambda_\ell+\rho_t\hat\lambda_\ell^{\mathrm{nat}}$ for $\ell\in B_\ell$ using the approximate moment-matched target \eqref{eq:nat-target}\;
+  Update $\nu_s\gets(1-\rho_t)\nu_s+\rho_t\hat\nu_s^{\mathrm{nat}}$ for $s\in B_s$ analogously\;
+  Periodically or with a running global estimate, compute $\bar\delta\gets S^{-1}\sum_{s=1}^{S}m_s^\delta$, then set $m_s^\delta\gets m_s^\delta-\bar\delta$ for all tracked samples and $m_\ell\gets m_\ell+\bar\delta$ to maintain \eqref{eq:sumzero}\;
+}
+\Return{$(\lambda,\nu,\phi)$ and auxiliary heads}\;
+\end{algorithm}
+
+\paragraph{Variance reduction.} We apply reparameterization for continuous latents, sticking-the-landing \citep{roeder2017stl} for the encoder gradient, and simple control variates for high-variance discrete or count terms. When the IWAE bound is in use ($K>1$), the released \texttt{fit\_svi\_torch} loop activates the Tucker-2019 doubly-reparameterized gradient estimator via \texttt{TorchSVIConfig.iwae\_dreg} (\S\ref{sec:elbo}). The simplified-numpy harness keeps the empirical-Bayes Gaussian-posterior path; both are exposed end-to-end.
+
+\paragraph{Convergence diagnostics.} We monitor (i) held-out surrogate ELBO or negative reconstruction loss, (ii) posterior-predictive checks of $\beta_{s,\ell}$ against held-out WGBS where available, (iii) effective sample size of importance weights
+\begin{equation}
+\mathrm{ESS} = \frac{\big(\sum_{i=1}^K w_i\big)^2}{\sum_{i=1}^K w_i^2},
+\end{equation}
+and (iv) natural-parameter drift $\|\lambda_\ell^{(t)}-\lambda_\ell^{(t-1)}\|$. Diagnostic thresholds should be set separately for the simplified synthetic harness and the full flow-based implementation.
+
+\subsection{Initialization}
+The naive initialization $\lambda_\ell=(\mu_0,\tau_0^2)$ for all $\ell$ is uninformative. We recommend empirical-Bayes initialization from a public methylation atlas only when that atlas is not part of the held-out evaluation target and its provenance is documented. For each locus, set $m_\ell^{(0)}=\logit(\bar\beta^{\mathrm{atlas}}_\ell)$ and $v_\ell^{(0)}=\tau_0^2$, with clipping near 0 and 1. The expected benefit is faster convergence, but the claimed speedup must be measured in the final real-data benchmark.
+
+\subsection{Warm-starting the encoder}
+\label{ssec:warmstart}
+Warm-starting trains the Set Transformer and flow as a per-locus regressor of $\beta$-values from fragment features against held-out methylation targets before SVI. The regression objective is squared error between the encoder posterior mean of $\sigm(\eta_{s,\ell})$ and the held-out target at the same locus. This is a recommended implementation step for the full model; the amount of convergence acceleration should be reported empirically rather than assumed.
+
+\subsection{Practical training concerns}
+The full implementation should apply gradient clipping, optional freezing of the DNA sequence encoder, KL annealing on the local-layer KL, cosine learning-rate decay after warmup, and leakage-control diagnostics for any atlas or prior input. The released synthetic harness uses a smaller empirical-Bayes variant, so its settings should not be read as full-model defaults.
+
+\subsection{Model hyperparameters}
+Full-model planning defaults are $\mu_0=0$, $\tau_0=2.0$, $\sigma_\delta=0.5$, $\sigma_\eta=0.8$, and $\kappa=20$. The proposed flow has $K=6$ NSF blocks with 8 bins per spline and hidden dimension $128$. The Set Transformer uses $L_e=2$ ISAB layers with 4 heads, hidden dimension $128$, and $m=64$ inducing points. The sequence encoder is either a 6-layer dilated CNN with 2~kb receptive field or a frozen DNA-language-model embedding. Appendix~\ref{app:hparams} distinguishes these full-model defaults from the simplified-harness values.
+
+\subsection{Optimization hyperparameters}
+We use AdamW learning rate $\alpha_\phi=5\times 10^{-3}$ for neural parameters and Robbins-Monro step sizes $\rho_t=(t+1)^{-0.6}$ for moment-matched natural-gradient layers (\texttt{TorchSVIConfig.lr}, \texttt{rho\_exponent}). Mini-batches in the released torch SVI loop default to $|B_s|=4$ samples and $|B_\ell|=32$ loci; the GPU run of Sec.~\ref{sec:benchmark:real} used $|B_s|=16$ and $|B_\ell|=128$ to fit the $S=77 \times L=782$ Liu 2024 panel in $\sim$80~min on a single A10G. IWAE sample count is $K=1$ for main training and $K=4$ for the Liu 2024 run. The conditional NSF flow head (num\_bins $=8$, zero-init, tail-linear extension; \S\ref{app:reparam}) is available via \texttt{posterior="flow"} but the headline real-data result uses the Gaussian head for stability.
+
+% ============================================================

@@ -1,0 +1,33 @@
+\section{cfDNA Fragmentation Simulator}
+\label{sec:simulator}
+
+We specify a chromatin-aware cfDNA simulator intended to produce paired ground-truth methylation and WGS-style fragments. The conceptual pipeline is chromatin state $\to$ nucleosome positioning $\to$ MNase-like fragmentation $\to$ end repair / adapter ligation $\to$ sequencing. The full simulator specification takes a per-CpG ground-truth methylation track $\beta\in[0,1]^L$, a chromatin-state annotation, and a reference genome assembly as inputs, and outputs fragment bags, coverage, motifs, and per-CpG ground truth. The released code currently implements a simplified synthetic harness that captures the same high-level dependencies but not every full-specification component in Appendix~\ref{app:sim}.
+
+\begin{lstlisting}[style=py,caption={cfDNA fragmentation simulator (algorithmic skeleton). Full specification in Appendix~\ref{app:sim}; released code implements a simplified harness for the current synthetic experiments.}]
+def simulate_cfDNA(genome, chromatin, methylation, n_frag, params):
+    fragments = []
+    # 1. Sample nucleosome positions from a point process
+    nucs = sample_nucleosomes(chromatin, params.spacing_mean, params.spacing_sd)
+    for _ in range(n_frag):
+        # 2. Pick a fragmentation site biased toward linker DNA
+        cut1 = sample_cut(nucs, params.linker_bias, params.periodicity_104)
+        # 3. Sample fragment length from mono/di/tri-nucleosomal mixture
+        L = sample_length_mixture(params.mu_lengths, params.sigma_lengths, params.weights)
+        cut2 = cut1 + L
+        # 4. End-motif sampling from sequence- and methylation-conditioned categorical
+        local_meth = methylation[cut1-2 : cut1+2].mean()
+        motif5 = sample_motif(genome, cut1, local_meth, params.motif_logits)
+        motif3 = sample_motif(genome, cut2, local_meth, params.motif_logits)
+        # 5. End repair, adapter, sequencing error
+        seq = simulate_sequencing(genome[cut1:cut2], params.error_rate)
+        fragments.append(Fragment(cut1, cut2, L, motif5, motif3, seq))
+    # 6. Coverage as Negative-Binomial conditioned on GC and methylation
+    coverage = sample_NB_coverage(genome, methylation, params.r, params.disp)
+    return fragments, coverage
+\end{lstlisting}
+
+Parameters are proposed from the cited cfDNA-fragmentomics literature and should be re-estimated or re-verified before final publication. The full algorithmic specification, with helper functions and a parameter table, appears in Appendix~\ref{app:sim}. The simplified harness fixes the random seed and emits the JSON/figure artifacts used in Section~\ref{sec:synth}.
+
+\paragraph{Validation.} The validation targets are: (i) fragment-length modes near mononucleosomal and multinucleosomal peaks; (ii) end-motif frequencies at the 5' and 3' ends; (iii) cut-site periodicity near the helical pitch of DNA; and (iv) methylation-conditioned cut bias. Some validation values are present as sidecar planning artifacts, but the final benchmark should regenerate validation plots and numeric comparisons from code before treating them as publication-ready measured results. Appendix~\ref{app:simvalidation} records the current status and intended diagnostics.
+
+% ============================================================

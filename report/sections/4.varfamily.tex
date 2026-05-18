@@ -1,0 +1,68 @@
+\section{Variational Family}
+\label{sec:varfamily}
+
+We approximate the posterior $p(\bm{\mu}^{\mathrm{pop}},\bdelta,\bm\eta\mid \mathcal{O},F)$ by a structured variational distribution
+\begin{equation}
+q(\bm{\mu}^{\mathrm{pop}},\bdelta,\bm\eta) = \prod_\ell q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)\,\prod_s q_{\nu_s}(\delta_s)\,\prod_{s,\ell} q_\phi(\eta_{s,\ell}\mid F_{s,\ell}; \bar m_\ell, \bar m_s^\delta).
+\label{eq:varfamily}
+\end{equation}
+Here $\bar m_\ell$ and $\bar m_s^\delta$ are current variational means passed to the encoder as deterministic context. This is a structured-VI approximation: it preserves amortization because the encoder weights $\phi$ are shared across all $(s,\ell)$, but it is not the exact conditional posterior because the recognition model conditions on point summaries of the population and sample-shift factors rather than sampling those factors inside the encoder.
+
+\paragraph{Encoder amortization.} The encoder parameters $\phi$ are shared across every $(s,\ell)$ pair and across every fragment bag. This is the central amortization that makes prediction feasible at genome scale. A new sample requires a forward pass through $\phi$ for each locus, followed by optional semi-amortized refinement if throughput is less important than per-sample accuracy.
+
+\subsection{Population layer: mean-field Gaussian on logit scale}
+For each locus, $q_{\lambda_\ell}(\mu^{\mathrm{pop}}_\ell)=\N(m_\ell,v_\ell)$, with variational parameters $\lambda_\ell=(m_\ell,v_\ell)$. The same form is used for the per-sample shift,
+\begin{equation}
+q_{\nu_s}(\delta_s)=\N(m_s^\delta,v_s^\delta), \qquad \nu_s=(m_s^\delta,v_s^\delta).
+\end{equation}
+The population and sample layers admit exact Gaussian-Gaussian KLs; their stochastic natural-gradient updates are approximate because the local recognition model is non-conjugate (Section~\ref{sec:elbo}).
+
+\subsection{Per-(sample, locus) layer: amortized normalizing flow}
+The bottleneck is $q_\phi(\eta_{s,\ell}\mid F_{s,\ell};\bar m_\ell,\bar m_s^\delta)$. A diagonal Gaussian is often too restrictive because low-coverage posteriors can be skewed, heavy-tailed, or boundary-concentrated after transformation to the $\beta$ scale. We use a one-dimensional normalizing flow on the logit scale:
+\begin{equation}
+\eta_{s,\ell} = T_\phi(\epsilon; c_{s,\ell}),\quad \epsilon\sim\N(0,1),
+\end{equation}
+where $T_\phi(\cdot; c)$ is a stack of neural-spline-flow (NSF) \citep{durkan2019nsf} or inverse-autoregressive-flow (IAF) \citep{kingma2016iaf} blocks conditioned on a context vector $c_{s,\ell}\in\R^{d_c}$. In one dimension, an expressive monotone spline can represent a wide range of continuous densities through the change-of-variables map; mixture-like or disconnected posterior mass should still be diagnosed empirically. The log-density is
+\begin{equation}
+\log q_\phi(\eta\mid c) = \log\N(\epsilon;0,1) - \log\big|\det\nabla_\epsilon T_\phi(\epsilon; c)\big|.
+\label{eq:flow-density}
+\end{equation}
+
+\subsection{Set Transformer encoder for fragment bags}
+The fragment bag $F_{s,\ell}=\{f_{s,\ell,j}\}$ is permutation-invariant. We encode it with induced-set attention blocks (ISAB) followed by pooling-by-multi-head-attention (PMA) \citep{lee2019settransformer}:
+\begin{equation}
+c^{\mathrm{frag}}_{s,\ell}=\mathrm{PMA}_1\big(\mathrm{ISAB}^{(L_e)}\circ\cdots\circ \mathrm{ISAB}^{(1)}(\{f_{s,\ell,j}\})\big),
+\end{equation}
+where ISAB uses $m=64$ inducing points, giving $O(nm)$ rather than $O(n^2)$ memory. Throughout the manuscript, ``Set Transformer'' refers to this ISAB-plus-PMA architecture unless explicitly stated otherwise.
+
+\subsection{Sequence-context encoder}
+We additionally condition on a sequence-context vector $c^{\mathrm{seq}}_\ell$ derived from the $\pm 1$~kb DNA sequence around the locus. The proposed full architecture uses either a small dilated CNN trained jointly or a frozen embedding from HyenaDNA \citep{nguyen2023hyenadna} or Caduceus \citep{schiff2024caduceus}. The full encoder context is the concatenation
+\begin{equation}
+c_{s,\ell}=[c^{\mathrm{frag}}_{s,\ell}\,\|\,c^{\mathrm{seq}}_\ell\,\|\,\bar m_\ell\,\|\,\bar m_s^\delta\,\|\,\log(1+n^{\mathrm{frag}}_{s,\ell})],
+\end{equation}
+where the coverage term lets the encoder scale posterior uncertainty with local evidence.
+
+\subsection{Comparison of variational families}
+A natural alternative is $q(\beta_{s,\ell})=\Bet(a_{s,\ell},b_{s,\ell})$ with $(a,b)$ produced by an inference network. The Beta family is unimodal and can struggle with low-information posteriors whose mass is uncertain between high and low methylation. Reparameterization for the Beta distribution is now well-handled by implicit reparameterization \citep{figurnov2018implicit}, rejection-sampling reparameterization \citep{naesseth2017reparam}, and pathwise gradients \citep{jankowiak2018pathwise}. We use logit-space normalizing flows as the proposed full-model choice and include the mean-field Beta as an ablation baseline. Table~\ref{tab:vfamily} distinguishes posterior-family choices from objective-tightening choices.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Posterior-family and objective choices for the per-(sample, locus) layer. IWAE tightens the training objective for a chosen posterior family rather than defining a separate family by itself.}
+\label{tab:vfamily}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+Choice & Expressiveness & Cost / step & Gradient variance \\
+\midrule
+Mean-field Gaussian (logit scale) & low (unimodal) & low & low \\
+Mean-field Beta & low (unimodal) & low & moderate (Beta reparam) \\
+Normalizing flow (NSF, $K$ blocks) & high (skew/tails) & moderate ($O(K)$) & low (pathwise) \\
+IWAE-tightened flow objective ($K$ samples) & same family, tighter bound & high ($K\times$) & moderate unless DReG is used \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\paragraph{Implementation bridge.} The released synthetic harness does not implement the full ISAB-plus-flow variational family. It implements a simplified Gaussian posterior and empirical-Bayes hierarchical fit that is useful for controlled synthetic checks. The full variational family in this section is therefore a proposed implementation target and is listed explicitly in the coding-agent handoff.
+
+% ============================================================

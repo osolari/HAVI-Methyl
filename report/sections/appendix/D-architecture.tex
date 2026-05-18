@@ -1,0 +1,50 @@
+\section{Architecture details}
+\label{app:arch}
+
+This appendix provides planning-level architecture details for the full HAVI-Methyl implementation. Parameter counts and memory estimates are approximate and should be regenerated after code implementation.
+
+\begin{table}[htbp]
+\centering\small
+\caption{Planned HAVI-Methyl architecture. Parameter counts assume hidden dimension $d_c=128$, $L_e=2$ ISAB layers, $K=6$ NSF blocks with 8 spline bins, and up to $T=64$ tissue components. Frozen modules are not counted.}
+\label{tab:arch}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrr}
+\toprule
+Component & Specification & Output dim & Trainable params \\
+\midrule
+\multicolumn{4}{l}{\emph{Fragment encoder}} \\
+\quad ISAB layer 1 & 4 heads, $m=64$, hidden 128 & $128$ & $\sim 100$K \\
+\quad ISAB layer 2 & 4 heads, $m=64$, hidden 128 & $128$ & $\sim 100$K \\
+\quad PMA pool ($k=1$) & 4 heads, hidden 128 & $128$ & $\sim 50$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Sequence encoder (one of)}} \\
+\quad Dilated CNN & 6 layers, kernel 7, dilations $\{1,2,4,8,16,32\}$ & $128$ & $\sim 200$K \\
+\quad HyenaDNA projection & frozen 256-d $\to$ 128-d linear & $128$ & $\sim 30$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Context fusion}} \\
+\quad Concat + MLP & $[c^{\mathrm{frag}}\|c^{\mathrm{seq}}\|m_\ell\|m_s^\delta\|\log(1+n)]\to128$ & $128$ & $\sim 70$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Normalizing-flow posterior}} \\
+\quad NSF block $\times K=6$ & rational-quadratic, 8 bins, hidden 128 & $1$ & $\sim 700$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Likelihood and auxiliary heads}} \\
+\quad Beta-Binomial sufficient-stat head & 1 layer, dim 64 & $1$ & $\sim 10$K \\
+\quad End-motif categorical head & 256-way softmax & $256$ & $\sim 30$K \\
+\quad Coverage NB head & 2-layer MLP, hidden 64 & $1$ & $\sim 10$K \\
+\quad Dirichlet ToO head & linear $\to T$, softplus & $64$ & $\sim 10$K \\
+\midrule
+\multicolumn{4}{l}{\emph{Variational parameters (non-amortized)}} \\
+\quad Population $\lambda_\ell$ & $(m_\ell,v_\ell)$, $\ell=1,\dots,L$ & $2L$ & data-scale \\
+\quad Sample shift $\nu_s$ & $(m_s^\delta,v_s^\delta)$, $s=1,\dots,S$ & $2S$ & sample-scale \\
+\midrule
+\textbf{Total trainable encoder/heads} & planning estimate & & $\sim 1.0\,\text{M}$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection*{Data flow}
+For one $(s,\ell)$ pair, fragment features pass through ISAB layers and PMA pooling to form $c^{\mathrm{frag}}_{s,\ell}$. The sequence window around $\ell$ is encoded into $c^{\mathrm{seq}}_\ell$. Current variational means and local coverage are concatenated with these embeddings and passed through a context MLP. A flow sample produces $\eta_{s,\ell}$, likelihood heads evaluate available observation terms, and optional auxiliary heads evaluate ToO, VIB, mQTL, and domain losses.
+
+\subsection*{Memory footprint}
+At $|B_s|=8$, $|B_\ell|=4096$, mean fragments $\bar n=20$, hidden dimension $128$, and two ISAB layers, raw activation storage for a single tensor of shape $|B_s||B_\ell|\bar n d_c$ is approximately $8\cdot4096\cdot20\cdot128\cdot4\approx 336$~MB in float32 before accounting for attention projections, residuals, gradients, optimizer buffers, and checkpointing. The previous sub-100~MB estimate was too low for full training. A production implementation should measure peak memory under the actual framework, precision, checkpointing scheme, and sequence-encoder caching strategy.

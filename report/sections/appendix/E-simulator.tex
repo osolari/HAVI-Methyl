@@ -1,0 +1,69 @@
+\section{Synthetic simulator full specification}
+\label{app:sim}
+
+This appendix gives the full specification of the chromatin-aware cfDNA simulator summarized in Section~\ref{sec:simulator}. The released \texttt{simulate\_dataset\_chromatin\_aware} composes Strauss nucleosome positioning, linker-biased cut sampling (\texttt{cut\_site\_density\_linker} implementing the formula below), a 3-mode fragment-length mixture re-fit on real Liu 2024 fragments ($\pi=[0.874, 0.117, 0.009]$, $\mu=[161, 313, 455]$~bp, $\sigma=[21, 38, 27]$~bp), and a boosted end-motif logit baseline. All five Appendix~H validation axes are now \emph{verified} on \texttt{simulate\_dataset\_chromatin\_aware} (cf.\ App.~\ref{app:simvalidation}).
+
+\subsection*{Inputs}
+The full simulator takes a reference genome assembly, a chromatin-state annotation, a per-CpG ground-truth methylation track $\beta\in[0,1]^L$, and a parameter dictionary controlling fragmentation, sequencing, and coverage. In the current harness, these rich inputs are replaced by synthetic methylation tracks and simplified feature distributions.
+
+\subsection*{Step 1: Nucleosome positioning}
+The full specification samples nucleosome positions from a one-dimensional point process with a renewal component and a repulsion component that discourages overlaps below the nucleosome-DNA wrap length. Parameter values in Table~\ref{tab:simparams} are planning defaults and should be re-estimated against the chosen reference datasets.
+
+\subsection*{Step 2: Fragmentation cuts}
+Cut sites should be biased toward linker DNA between nucleosomes. If $d_{\mathrm{center}}(x)$ is the distance to the nearest nucleosome center and $d_{\mathrm{linker}}(x)$ is the distance to the nearest linker midpoint, a linker-biased density can be written as
+\begin{equation}
+p_{\mathrm{cut}}(x) \propto \exp\!\big(-d_{\mathrm{linker}}(x)/\sigma_{\mathrm{link}}\big)\,\big[1 + a\cos(2\pi d_{\mathrm{center}}(x)/10.4)\big]_+.
+\end{equation}
+The earlier shorthand using $\exp(-d_{\mathrm{nuc}}/\sigma)$ with $d_{\mathrm{nuc}}$ as distance to the nucleosome center would instead concentrate cuts near centers and is not the intended linker-bias model. The bracket $[\cdot]_+$ denotes truncation to nonnegative density.
+
+\subsection*{Step 3: Fragment-length distribution}
+Fragment lengths $L$ are sampled from a mixture corresponding to mono-, di-, and tri-nucleosomal fragments:
+\begin{equation}
+p(L) = 0.7\,\N(167, 15^2) + 0.2\,\N(332, 30^2) + 0.1\,\N(500, 80^2).
+\end{equation}
+These values are planning defaults motivated by published cfDNA fragment-length distributions and should be fitted or checked for each dataset.
+
+\subsection*{Step 4: End-motif sampling}
+The 4-mer end motif at each cut site is sampled from a categorical distribution over $256$ possible 4-mers, with logits conditioned on local genome sequence and local methylation:
+\begin{equation}
+m_{\mathrm{cut}} \sim \Cat\!\big(\mathrm{softmax}(W_{\mathrm{seq}}\,\mathrm{onehot}(g_{\mathrm{cut}}) + W_{\mathrm{meth}}\,\beta_{\mathrm{cut}})\big).
+\end{equation}
+The motif logits should be fitted to training data or validated against published plasma WGS distributions before publication.
+
+\subsection*{Step 5: Sequencing simulation}
+The full specification includes end repair, adapter ligation, paired-end reads, and sequencing error. The exact error model should be parameterized by the sequencing platform used in the target benchmark rather than hard-coded.
+
+\subsection*{Step 6: Coverage sampling}
+Per-locus fragment counts use the mean-dispersion Negative-Binomial convention from Section~\ref{sec:model}:
+\begin{equation}
+n_{s,\ell}\sim\NB(r,\mu_{s,\ell}),\quad \log\mu_{s,\ell}=b_0+b_{\mathrm{GC}}\mathrm{GC}_\ell+b_\beta\beta_{s,\ell}+b_{\mathrm{map}}\mathrm{map}_\ell.
+\end{equation}
+This aligns the simulator with the model likelihood and avoids ambiguity between probability and mean parameterizations.
+
+\subsection*{Parameter table}
+\begin{table}[htbp]
+\centering\small
+\caption{Simulator planning parameters. Values should be regenerated or verified for the final benchmark dataset.}
+\label{tab:simparams}
+\begin{tabular}{lll}
+\toprule
+Parameter & Planning value & Status \\
+\midrule
+Nucleosome spacing mean & $187$~bp & verify / fit \\
+Nucleosome spacing std & $25$~bp & verify / fit \\
+Repulsion strength & $0.1$ & verify / fit \\
+Linker rolloff $\sigma_{\mathrm{link}}$ & $20$~bp & verify / fit \\
+Periodicity amplitude $a$ & $0.3$ & verify / fit \\
+Periodicity period & $10.4$~bp & biological prior \\
+Length mixture mode 1 & $\N(167, 15^2)$ & verify / fit \\
+Length mixture mode 2 & $\N(332, 30^2)$ & verify / fit \\
+Length mixture mode 3 & $\N(500, 80^2)$ & verify / fit \\
+Per-base error rate & platform-specific & set by assay \\
+Read length & platform-specific & set by assay \\
+NB dispersion $r$ & dataset-specific & fit \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Computational cost}
+Simulator runtime estimates should be treated as implementation targets until benchmarked. The coding agent should record wall-clock time, CPU/GPU configuration, random seed, sample count, locus count, and output size for each validation run.

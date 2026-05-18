@@ -1,0 +1,53 @@
+\section{Notation glossary}
+\label{app:glossary}
+\begin{center}
+\small
+\begin{tabular}{llll}
+\toprule
+Symbol & Domain & Meaning & Introduced \\
+\midrule
+\multicolumn{4}{l}{\emph{Indices}} \\
+$s$ & $\{1,\dots,S\}$ & Sample index & \S\ref{sec:model} \\
+$\ell$ & $\{1,\dots,L\}$ & Locus index & \S\ref{sec:model} \\
+$j$ & fragments & Fragment index within $(s,\ell)$ & \S\ref{sec:model} \\
+$k$ & local & CpG index, HMM state, or tissue index by context & \S\ref{sec:model} \\
+\midrule
+\multicolumn{4}{l}{\emph{Latents}} \\
+$\beta_{s,\ell}$ & $(0,1)$ & Methylation beta-value & \S\ref{sec:model} \\
+$\eta_{s,\ell}$ & $\R$ & Logit methylation & \S\ref{sec:model} \\
+$\mu^{\mathrm{pop}}_\ell$ & $\R$ & Population logit at locus $\ell$ & \S\ref{sec:model} \\
+$\delta_s$ & $\R$ & Per-sample logit shift & \S\ref{sec:model} \\
+$\bm\pi_s$ & simplex & Tissue fractions for sample $s$ & \S\ref{sec:too} \\
+$\zeta$ & $\R^{d_c}$ & Encoder representation & \S\ref{sec:identify} \\
+$U$ & latent & Unmeasured confounders & \S\ref{sec:identify} \\
+\midrule
+\multicolumn{4}{l}{\emph{Observed quantities}} \\
+$F_{s,\ell}$ & set / bag & Fragment-feature bag used by recognition model & \S\ref{sec:model} \\
+$f_{s,\ell,j}$ & $\R^d$ & Single fragment feature vector & \S\ref{sec:model} \\
+$\mathcal{O}_{s,\ell}$ & mixed & Likelihood-bearing observation modalities & \S\ref{sec:model} \\
+$n^{\mathrm{frag}}_{s,\ell}$ & $\mathbb{Z}_{\ge0}$ & Fragment count at locus & \S\ref{sec:model} \\
+$n^{\mathrm{cpg}}_{s,\ell}$ & $\mathbb{Z}_{\ge0}$ & CpG-trial count & \S\ref{sec:model} \\
+$n^m_{s,\ell}$ & $\mathbb{Z}_{\ge0}$ & Methylated CpG-call count & \S\ref{sec:model} \\
+$m_{s,\ell,j}$ & $\{1,\dots,256\}$ & 4-mer end motif & \S\ref{sec:model} \\
+$X_{\mathrm{prior},s}$ & prior input & Buffy-coat or atlas-derived prior input & \S\ref{sec:identify} \\
+$g_{s,a(\ell)}$ & $\{0,1,2\}$ & Sample-specific genotype at anchor variant & \S\ref{sec:identify} \\
+\midrule
+\multicolumn{4}{l}{\emph{Variational and objective parameters}} \\
+$\lambda_\ell=(m_\ell,v_\ell)$ & $\R^2$ & Population variational parameters & \S\ref{sec:varfamily} \\
+$\nu_s=(m_s^\delta,v_s^\delta)$ & $\R^2$ & Sample-shift variational parameters & \S\ref{sec:varfamily} \\
+$\phi$ & parameters & Encoder and flow parameters & \S\ref{sec:varfamily} \\
+$T_\phi$ & flow & Normalizing-flow transform & \S\ref{sec:varfamily} \\
+$c_{s,\ell}$ & $\R^{d_c}$ & Encoder context vector & \S\ref{sec:varfamily} \\
+$\mathcal{J}_{\mathrm{total}}$ & scalar & Maximized total objective & \S\ref{sec:too} \\
+\midrule
+\multicolumn{4}{l}{\emph{Hyperparameters and operators}} \\
+$\mu_0,\tau_0$ & $\R,\R_+$ & Population prior mean and std & \S\ref{sec:model} \\
+$\sigma_\delta,\sigma_\eta$ & $\R_+$ & Sample and local stds & \S\ref{sec:model} \\
+$\kappa$ & $\R_+$ & Beta-Binomial concentration & \S\ref{sec:model} \\
+$\sigm(\cdot)$ & $\R\to(0,1)$ & Logistic sigmoid & -- \\
+$\logit(\cdot)$ & $(0,1)\to\R$ & Logit transform & -- \\
+$\elbo$ & scalar & Evidence lower bound & \S\ref{sec:elbo} \\
+$\KL(p\|q)$ & scalar & Kullback-Leibler divergence & -- \\
+\bottomrule
+\end{tabular}
+\end{center}

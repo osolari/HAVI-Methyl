@@ -1,0 +1,16 @@
+\section{Conjugate VB-HMM updates (baseline)}
+\label{app:vbhmm}
+
+This appendix records the variational HMM baseline used as a methodological reference. It is a useful comparison because it resembles FinaleMe-style binary-state smoothing, but it is not a nested ablation of the full HAVI-Methyl architecture.
+
+\subsection*{Generative model}
+Let $z_t\in\{m,u\}$ be a binary methylation state along loci and $y_{s,t}$ be a feature vector. A simple HMM has initial probabilities $\bpi$, transition matrix $A$, and Gaussian emissions $p(y_{s,t}\mid z_t=k)=\N(y_{s,t};\mu_k,\Sigma_k)$.
+
+\subsection*{Variational family and updates}
+With Dirichlet priors on $\bpi$ and rows of $A$, and Normal-Wishart emission priors, coordinate-ascent VB alternates expected forward-backward state marginals with conjugate parameter updates. The expected transition counts update the Dirichlet parameters; expected state-weighted feature sums update the emission parameters. The ELBO is the expected complete-data log joint minus variational entropy.
+
+\subsection*{Connection to Baum-Welch}
+Replacing posterior distributions over parameters by point estimates recovers an EM/Baum-Welch-style baseline. This helps isolate the value of continuous latents, hierarchy, amortization, and calibration.
+
+\subsection*{Limitations of the baseline}
+The baseline remains binary, per-sample or weakly pooled, and does not provide calibrated continuous posterior intervals. Comparisons should therefore be framed as baseline comparisons rather than component-wise HAVI-Methyl ablations.
