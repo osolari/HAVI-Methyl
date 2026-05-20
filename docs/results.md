@@ -24,7 +24,7 @@ fragment count.
 | HAVI-Methyl simplified (full) | 0.081 | 0.065 | 0.564 | 0.416 | 0.053 |
 | HAVI-Methyl simplified (no flow) | 0.082 | 0.067 | 0.565 | 0.416 | 0.054 |
 | HAVI-Methyl simplified (no hierarchy) | 0.078 | 0.063 | 0.564 | 0.318 | 0.052 |
-| **HAVI-Methyl (full torch)** | **0.455** | **0.421** | **0.743** | **0.322** | **0.434** |
+| **HAVI-Methyl (full torch)** | **0.467** | **0.434** | **0.750** | **0.311** | **0.436** |
 
 All five rows are from
 [`docs/report/tables/bench_finaleme_realdata.csv`](https://github.com/osolari/HAVI-Methyl/blob/main/docs/report/tables/bench_finaleme_realdata.csv).
@@ -36,8 +36,8 @@ section.
 
 The simplified-numpy ablations are deliberately initialised from the
 FinaleMe baseline and therefore reproduce its per-locus mean almost
-exactly. The architectural lift over the baseline ($r=0.078 \to 0.455$,
-$\sim 5.8\times$) is the flow- and Set-Transformer-driven head.
+exactly. The architectural lift over the baseline ($r=0.078 \to 0.467$,
+$\sim 6.0\times$) is the flow- and Set-Transformer-driven head.
 
 ### Per-locus density
 

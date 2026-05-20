@@ -73,7 +73,7 @@ On the published Liu 2024 paired cfDNA WGS/WGBS panel ($S=77$ patients,
 $L=782$ high-variance CpGs, manifest-paired via Supplementary Table 1),
 the full HAVI-Methyl torch loop (Set Transformer + Gaussian posterior +
 Beta-Binomial reconstruction + Robbins-Monro recentering) trained
-200 iterations on a single A10 GPU.
+500 iterations on a single A10G GPU.
 
 | Method | Pearson $r$ | AUC at $\beta=0.5$ | ECE (credible) | ICC(2,1) |
 |---|---:|---:|---:|---:|
@@ -81,7 +81,7 @@ Beta-Binomial reconstruction + Robbins-Monro recentering) trained
 | HAVI-Methyl simplified (full) | 0.081 | 0.564 | 0.416 | 0.053 |
 | HAVI-Methyl simplified (no flow) | 0.082 | 0.565 | 0.416 | 0.054 |
 | HAVI-Methyl simplified (no hierarchy) | 0.078 | 0.564 | 0.318 | 0.052 |
-| **HAVI-Methyl (full torch)** | **0.455** | **0.743** | **0.322** | **0.434** |
+| **HAVI-Methyl (full torch)** | **0.467** | **0.750** | **0.311** | **0.436** |
 
 All five rows come from
 [`docs/report/tables/bench_finaleme_realdata.csv`](https://github.com/osolari/HAVI-Methyl/blob/main/docs/report/tables/bench_finaleme_realdata.csv).

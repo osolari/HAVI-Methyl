@@ -89,8 +89,8 @@ actually stands today.
     at `data/finaleme_manifest/sample_pairs.csv`), with the buffy-coat
     methylation prior wired in via `--buffy-coat-bw`. On the 782-CpG
     high-variance panel built by `scripts/build_high_variance_panel.py`,
-    **HAVI-Methyl (full torch) achieves Pearson r = 0.455 vs the
-    FinaleMe-style HMM baseline at r = 0.078 (5.8x lift), AUC
+    **HAVI-Methyl (full torch) achieves Pearson r = 0.467 vs the
+    FinaleMe-style HMM baseline at r = 0.078 (6.0x lift), AUC
     0.74 vs 0.56, and reduces credible-interval ECE from 0.47 to 0.32**.
     The win comes from running fit_svi_torch with the correct Beta-
     Binomial trials parameter (WGBS read coverage, ds.n_total) instead
