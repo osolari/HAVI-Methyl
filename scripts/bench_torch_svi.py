@@ -52,6 +52,15 @@ def main() -> None:
     if hm.fit_svi_torch is None:  # pragma: no cover
         raise SystemExit("torch is required; install with `pip install torch`")
 
+    # --fast: shrink for CI smoke (samples/loci/iter/coverages).
+    if getattr(args, "fast", False):
+        args.iter = 10
+        args.coverages = [1.0]
+        args.samples = 4
+        args.loci = 40
+        args.heads = args.heads[:1]
+        args.iwae_ks = [1]
+
     sys_label = f"{platform.system()} {platform.machine()} {platform.processor() or 'cpu'}"
     rows = []
     # Build the (objective, K, dreg) sweep. K=1 always uses standard ELBO; K>1

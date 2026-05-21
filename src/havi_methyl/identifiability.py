@@ -96,7 +96,7 @@ def prior_attribution_partial_r2(
     if prior.size != pred.size:
         # Broadcast a per-locus prior across samples
         n = pred.size // prior.size
-        prior = np.tile(prior, n)
+        prior = np.tile(prior, n)  # type: ignore[assignment]
     X = np.stack([prior, true], axis=1)
     # full R^2
     beta, *_ = np.linalg.lstsq(X, pred, rcond=None)

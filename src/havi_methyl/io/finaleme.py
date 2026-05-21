@@ -307,7 +307,7 @@ def _read_bigwig_per_locus_mean(
             if vals and vals[0] is not None:
                 out[i] = float(vals[0])
     # Scale [0,100] -> [0,1] to match downstream methylation conventions.
-    out = out / 100.0
+    out = out / 100.0  # type: ignore[assignment]
     if np.isnan(out).any():
         m = float(np.nanmean(out)) if np.isfinite(out).any() else 0.5
         out[np.isnan(out)] = m
