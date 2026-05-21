@@ -19,8 +19,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import _common  # type: ignore
-import havi_methyl as hm
 import numpy as np
+
+import havi_methyl as hm
 
 PLOT_DATA_PATH = Path("outputs/plot_data.npz")
 REPORT_RESULTS_PATH = Path("docs/report/results.json")

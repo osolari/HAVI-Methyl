@@ -17,8 +17,9 @@ run; replace the simulator with the EGA loader (Phase 5) for real numbers.
 from __future__ import annotations
 
 import _common  # type: ignore
-import havi_methyl as hm
 import numpy as np
+
+import havi_methyl as hm
 
 
 def _split_conformal_intervals(

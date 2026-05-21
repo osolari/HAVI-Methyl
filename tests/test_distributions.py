@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import havi_methyl as hm
 import numpy as np
-from havi_methyl import distributions as D
 from scipy.stats import beta as scipy_beta
 from scipy.stats import betabinom, dirichlet, nbinom, norm
+
+import havi_methyl as hm
+from havi_methyl import distributions as D
 
 
 def test_gaussian_log_pdf_matches_scipy(rng):

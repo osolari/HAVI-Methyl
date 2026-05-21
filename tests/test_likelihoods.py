@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import numpy as np
-from havi_methyl import likelihoods as L
 from scipy.stats import betabinom
+
+from havi_methyl import likelihoods as L
 
 
 def test_bb_reconstruction_matches_scipy(rng):

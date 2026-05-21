@@ -11,6 +11,7 @@ by the released code in ``src/havi_methyl/`` (or ``not implemented`` /
 from __future__ import annotations
 
 import _common  # type: ignore
+
 import havi_methyl as hm
 
 

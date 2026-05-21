@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from havi_methyl import (
     ConformalRiskController,
     coverage_curve,

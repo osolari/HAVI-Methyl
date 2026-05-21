@@ -4,6 +4,7 @@ table with sources from the literature."""
 from __future__ import annotations
 
 import _common  # type: ignore
+
 import havi_methyl as hm
 
 

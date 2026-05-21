@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from havi_methyl import enforce_sum_zero_constraint
 from havi_methyl.model import HierarchicalModel as HM
 

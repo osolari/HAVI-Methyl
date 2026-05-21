@@ -23,8 +23,9 @@ import platform
 import time
 
 import _common  # type: ignore
-import havi_methyl as hm
 import numpy as np
+
+import havi_methyl as hm
 
 
 def measure_simplified_step(S: int, L: int, n_iter: int, seed: int) -> dict[str, float]:

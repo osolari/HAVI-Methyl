@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+
 from havi_methyl import (
     ConditionalRationalQuadraticSpline,
     DilatedCNNSequenceEncoder,
@@ -302,6 +303,7 @@ def test_torch_svi_end_to_end_smoke():
 def test_torch_conditional_nsf_block_finite_at_random_init():
     pytest.importorskip("torch")
     import torch
+
     from havi_methyl.flow import ConditionalNSFBlock
 
     torch.manual_seed(0)
@@ -316,6 +318,7 @@ def test_torch_conditional_nsf_block_finite_at_random_init():
 def test_torch_nsf_stack_log_density_finite():
     pytest.importorskip("torch")
     import torch
+
     from havi_methyl.flow import ConditionalNSFStack
 
     torch.manual_seed(1)

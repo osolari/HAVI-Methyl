@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import havi_methyl as hm
 import numpy as np
+
+import havi_methyl as hm
 from havi_methyl.baseline import (
     NIWPosterior,
     dirichlet_geometric_mean,

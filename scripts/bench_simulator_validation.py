@@ -14,8 +14,9 @@ Emits two CSVs:
 from __future__ import annotations
 
 import _common  # type: ignore
-import havi_methyl as hm
 import numpy as np
+
+import havi_methyl as hm
 
 
 def _status_for(axis_key: str, value: float) -> str:

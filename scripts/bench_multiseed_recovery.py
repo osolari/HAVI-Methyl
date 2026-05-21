@@ -16,8 +16,9 @@ called for in Sec. 11's caveats subsection (``CODING_AGENT_HANDOFF.md``
 from __future__ import annotations
 
 import _common  # type: ignore
-import havi_methyl as hm
 import numpy as np
+
+import havi_methyl as hm
 
 
 def main() -> None:

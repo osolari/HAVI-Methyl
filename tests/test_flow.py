@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from havi_methyl.flow import RationalQuadraticSpline, StackedFlow
 
 

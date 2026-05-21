@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+
 from havi_methyl import (
     GaussianFactor,
     GaussianLocalPosterior,

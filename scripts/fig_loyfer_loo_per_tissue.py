@@ -21,9 +21,10 @@ from pathlib import Path
 
 import _common  # type: ignore
 import _style  # type: ignore
-import havi_methyl as hm
 import matplotlib.pyplot as plt
 import numpy as np
+
+import havi_methyl as hm
 
 ATLAS_PATH = Path("data/loyfer_panel/Atlas.U25.l4.hg38.tsv")
 

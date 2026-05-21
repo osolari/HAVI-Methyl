@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from havi_methyl import (
     fano_error_lower_bound,
     fano_mse_lower_bound,
