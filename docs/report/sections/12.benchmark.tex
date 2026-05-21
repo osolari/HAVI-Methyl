@@ -58,7 +58,7 @@ Figure~\ref{fig:finaleme_paired_metrics} compares the full HAVI-Methyl torch loo
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.95\textwidth]{figures/finaleme_paired_metrics.png}
-\caption{Pearson $r$ (left) and credible-interval ECE (right) on the Liu~2024 paired cfDNA $\to$ WGBS panel. HAVI-Methyl (full torch, orange) leads the FinaleMe-style HMM by 4.8$\times$ in correlation and reduces calibration error by 33\%. Grey bars are the simplified-numpy ablations that share the FinaleMe baseline by construction.}
+\caption{Pearson $r$ (left) and credible-interval ECE (right) on the Liu~2024 paired cfDNA $\to$ WGBS panel. HAVI-Methyl (full torch, orange) leads the FinaleMe-style HMM by $\sim 6.0\times$ in correlation ($r=0.467$ vs $0.078$) and cuts calibration error by $\sim 34\%$ (ECE $0.311$ vs $0.474$). Grey bars are the simplified-numpy ablations that share the FinaleMe baseline by construction.}
 \label{fig:finaleme_paired_metrics}
 \end{figure}
 
@@ -70,7 +70,7 @@ Figure~\ref{fig:finaleme_paired_metrics} compares the full HAVI-Methyl torch loo
 \end{figure}
 
 \paragraph{Per-coverage breakdown.}
-Figure~\ref{fig:coverage_strat} stratifies the same evaluation by WGBS depth (proxied by $\beta\in\{0,1\}$ vs.\ $0<\beta<1$ vs.\ $0.1<\beta<0.9$). HAVI-Methyl is the only method that achieves positive recovery in every stratum; the FinaleMe baseline is negatively correlated with truth in the interior and middle strata ($r=-0.049$, $-0.035$) because its 2-cluster EM ceiling cannot extrapolate to non-binary methylation states. In the extreme stratum (most CpGs with $n_{\mathrm{total}}\approx 1$) the gap widens to $r=0.638$ versus $r=0.148$.
+Figure~\ref{fig:coverage_strat} stratifies the same evaluation by WGBS depth (the $\beta$-extreme stratum, $n_{\mathrm{total}}\approx 1$, $n=22{,}443$; the multi-read interior, $n=37{,}771$; and the $\beta\in(0.1, 0.9)$ middle, $n=37{,}437$). HAVI-Methyl is the only method with positive Pearson $r$ in every stratum: it reaches $r\approx +0.28$ in the multi-read interior while the FinaleMe baseline is anti-correlated with truth at $r\approx -0.05$ there (and $-0.035$ in the middle stratum), because the baseline's 2-cluster EM ceiling cannot extrapolate to non-binary methylation states. In the $\beta$-extreme stratum the gap widens to $r\approx +0.64$ for HAVI versus $r\approx +0.15$ for FinaleMe.
 
 \begin{figure}[htbp]
 \centering
@@ -105,7 +105,7 @@ The released protocol uses an even/odd sample-index split for the DMR-F1 calcula
 \subsection{Leakage and atlas controls}
 Empirical-Bayes initialization from public atlases is allowed only when the atlas samples and loci do not leak held-out targets. The coding agent should maintain a provenance table for every atlas, reference panel, and prior input; exclude test individuals from any initialization; and report a sensitivity analysis comparing random, atlas, and train-only empirical-Bayes initialization.
 
-\subsection{Compute budget on wafer-scale accelerator}
-The compute budget is a planning estimate, not a measured throughput claim. The full encoder is expected to have approximately $1.0\,\text{M}$ trainable neural parameters, while the non-amortized variational parameters scale with loci and samples. At $|B_s|=8$, $|B_\ell|=4096$, and mean fragments per locus $\bar n=20$, the dominant costs are ISAB attention and flow evaluation. The final implementation should benchmark sustained throughput, data-loading time, DNA-encoder caching, memory use, and wall-clock time on the actual hardware before publication. Appendix~\ref{app:arch} reports the current planning arithmetic and should be regenerated after the implementation is complete.
+\subsection{Compute budget}
+The headline real-data row was produced by a $500$-iteration training of \texttt{fit\_svi\_torch} on a single A10G GPU, with mini-batch sizes $|B_s|=16$ and $|B_\ell|=128$ on the $S=77 \times L=782$ Liu 2024 panel and IWAE sample count $K=4$. Wafer-scale projections remain planning estimates: the full encoder is expected to have approximately $1.0\,\text{M}$ trainable neural parameters, while the non-amortized variational parameters scale with loci and samples. At $|B_s|=8$, $|B_\ell|=4096$, and mean fragments per locus $\bar n=20$, the dominant costs are ISAB attention and flow evaluation. Appendix~\ref{app:arch} reports the planning arithmetic and Sec.~\ref{sec:discussion} flags sustained-throughput measurement on the wafer-scale target as a deployment-time task rather than a research blocker.
 
 % ============================================================

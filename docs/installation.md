@@ -10,9 +10,9 @@ HAVI-Methyl runs on Python $\ge$ 3.10.
 | `make install-dev` | + `matplotlib`, `pandas`, `pytest`, `ruff`, `mypy` | Developer workflow: run the 156-test pytest suite, the figure / table scripts under `scripts/`, and the linters. |
 | `make install-torch` | + `torch` | Full production stack: Set Transformer encoder (`encoders.py`), Conditional NSF flow head (`flow.py`), and the end-to-end `fit_svi_torch` / `predict_with_torch_state` loop. Without it, the same math is exercised through the simplified-Gaussian variant of Sec. 11. |
 
-The torch install is what lands the headline real-data Pearson $r = 0.455$
-on Liu 2024; the numpy install reproduces the §11 synthetic recovery
-benchmark and the A0..A5 ablation matrix end-to-end.
+The torch install is what lands the headline real-data Pearson $r = 0.467$
+on Liu 2024 (500-iteration A10G run); the numpy install reproduces the §11
+synthetic recovery benchmark and the A0..A5 ablation matrix end-to-end.
 
 ## Data setup
 

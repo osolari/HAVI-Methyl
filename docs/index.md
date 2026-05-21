@@ -73,7 +73,9 @@ On the published Liu 2024 paired cfDNA WGS/WGBS panel ($S=77$ patients,
 $L=782$ high-variance CpGs, manifest-paired via Supplementary Table 1),
 the full HAVI-Methyl torch loop (Set Transformer + Gaussian posterior +
 Beta-Binomial reconstruction + Robbins-Monro recentering) trained
-500 iterations on a single A10G GPU.
+$500$ iterations on a single A10G GPU achieves a $\sim 6.0\times$ lift in
+Pearson $r$ over the FinaleMe-style HMM baseline ($0.467$ vs.\ $0.078$),
+AUC $0.750$ vs.\ $0.564$, credible-interval ECE $0.311$ vs.\ $0.474$.
 
 | Method | Pearson $r$ | AUC at $\beta=0.5$ | ECE (credible) | ICC(2,1) |
 |---|---:|---:|---:|---:|
@@ -94,6 +96,20 @@ bound how much of the gap can be attributed to hierarchical shrinkage
 alone. The architectural lift comes from the Set Transformer +
 Beta-Binomial head, run with the *correct* trials parameter
 (`ds.n_total` = WGBS read coverage, not `ds.n` = WGS fragment count).
+
+Five further results round out the picture: (i) **per-stratum recovery** —
+HAVI is the only method with positive Pearson $r$ in every WGBS-depth
+stratum (interior $\approx +0.28$ vs. FinaleMe $\approx -0.05$; extreme
+$\approx +0.64$ vs. $\approx +0.15$); (ii) **Loyfer LOO tissue-of-origin**
+— the variance-weighted Dirichlet head wins LOO RMSE at every one of the
+36 cell types in the U25 panel ($0.017$ vs. lstsq $0.028$);
+(iii) **multi-seed synthetic recovery** — $N=20$ seeds, non-overlapping
+$90\%$ bootstrap intervals at $0.1\times$, $1\times$, $5\times$;
+(iv) **App. H simulator validation** — all five axes verified after a
+3-mode length-mixture re-fit to real Liu 2024 fragments;
+(v) **prior-leakage stress** — prior attribution drops from $5.93\%$ to
+$0.62\%$ via VIB and to $0.037\%$ with mQTL anchors. See
+[Real-data results](results.md) for the full breakdown.
 
 ## Where to go next
 

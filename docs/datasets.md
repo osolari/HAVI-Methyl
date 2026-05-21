@@ -58,10 +58,10 @@ realised panel is $S = 77$ patients $\times$ $L = 782$ CpGs.
     `ds.n` (WGS fragment count). They are *different observation
     streams*: WGBS coverage measures direct methylation reads, WGS
     fragment count measures cfDNA fragments visible to the encoder.
-    Using `ds.n` lifts HAVI-Methyl from $r = -0.07$ to $r = 0.455$ on
-    the Liu 2024 panel; the same number with the wrong stream is
-    negatively correlated with truth. See
-    [Changelog](changelog.md) for the full incident.
+    Using `ds.n_total` (correctly) lifts HAVI-Methyl from $r = -0.07$
+    to $r = 0.467$ on the Liu 2024 panel ($500$-iteration A10G run);
+    the same loop with the wrong stream is negatively correlated with
+    truth. See [Changelog](changelog.md) for the full incident.
 
 ### Jensen 2015 buffy-coat prior
 

@@ -46,12 +46,16 @@ Closed four of five open follow-ups from §14 Discussion.
 The BB-trials bug fix (using WGBS read coverage `ds.n_total` rather
 than WGS fragment count `ds.n` as the Beta-Binomial trials) lifts
 HAVI-Methyl (full torch) on the Liu 2024 paired panel from $r = -0.07$
-to **$r = 0.455$ vs FinaleMe-style HMM $r = 0.078$ ($\sim 5.8\times$),
-AUC $0.74$ vs $0.56$, ECE $0.32$ vs $0.47$.** Per-stratum: HAVI is the
-only method with positive Pearson $r$ in every WGBS-depth stratum
-(FinaleMe is anti-correlated at $r = -0.05$ in the multi-read
-interior). On the Loyfer/UXM_deconv U25 panel the variance-weighted
-Dirichlet head wins LOO RMSE at every one of the 36 cell types.
+to **$r = 0.467$ vs FinaleMe-style HMM $r = 0.078$ ($\sim 6.0\times$,
+$500$-iteration A10G run; the 200-iteration intermediate snapshot
+landed $r = 0.455$), AUC $0.750$ vs $0.564$, ECE $0.311$ vs $0.474$.**
+Per-stratum: HAVI is the only method with positive Pearson $r$ in
+every WGBS-depth stratum (FinaleMe is anti-correlated at $r = -0.05$
+in the multi-read interior; HAVI reaches $r \approx +0.28$ there and
+$r \approx +0.64$ in the $\beta$-extreme stratum). On the
+Loyfer/UXM_deconv U25 panel the variance-weighted Dirichlet head wins
+LOO RMSE at every one of the 36 cell types ($0.017$ vs $0.028$ vs
+$0.038$ vs $0.035$).
 
 ### Figure overhaul
 

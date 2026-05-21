@@ -5,8 +5,8 @@ This is a publication-development LaTeX project for the HAVI-Methyl manuscript. 
 ## Current status
 
 - The manuscript specifies the full HAVI-Methyl architecture: hierarchical logit-scale methylation model, amortized fragment-bag encoder, normalizing-flow posterior, leakage-control losses, conformal calibration, and tissue-of-origin head.
-- The included code implements a simplified synthetic harness used for the completed fixed-seed synthetic results. It is not the full Set Transformer + normalizing-flow implementation.
-- Real-data benchmarking, full ablations, conformal calibration evaluation, full tissue-head training, and simulator validation plots remain planned implementation tasks.
+- The released code now ships the **full torch SVI loop** (Set Transformer encoder + Gaussian or Conditional NSF posterior head + Beta-Binomial reconstruction + Robbins-Monro recentering + true gradient-reversal sample-id discriminator + joint variance-weighted Dirichlet ToO head + Tucker-2019 DReG-IWAE estimator) end-to-end on synthetic and real Liu 2024 paired data, alongside the simplified-numpy harness used for the multi-seed synthetic recovery benchmark.
+- Real-data results are measured: Liu 2024 paired ($r=0.467$ vs FinaleMe $r=0.078$, 500-iter A10G run), Loyfer U25 LOO (HAVI Dirichlet head wins 36/36 cell types), App. H simulator validation (5/5 axes verified). The only remaining research direction is prospective clinical validation under regulatory protocol (cf. §14).
 
 ## Key files
 
@@ -64,4 +64,4 @@ The script resolves paths relative to the repository root and writes `results.js
 
 ## Important interpretation constraints
 
-The synthetic results are completed results from the simplified harness. They must not be described as completed real-data results or as completed evaluations of the full Set Transformer + normalizing-flow architecture. Real-data benchmark tables with placeholder values are intentional planning artifacts and should remain clearly labeled until experiments are run.
+The synthetic results in §11 are completed measured results from the simplified-numpy harness; the §12 real-data results come from the full torch SVI loop on the published Liu 2024 paired panel and the published Loyfer/UXM_deconv U25 atlas. External-baseline rows in `tables/bench_finaleme_realdata.csv` (FinaleMe upstream, DeepCpG, Elastic-net, MethylBERT) remain `XX` placeholders pending each project's own codebase being aligned to the 782-CpG panel; the HAVI-Methyl-and-FinaleMe-style-HMM-reimplementation rows are real Liu 2024 numbers.

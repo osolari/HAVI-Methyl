@@ -15,11 +15,17 @@ torch SVI training stack** (Set Transformer encoder + Gaussian or
 Conditional NSF flow posterior head + Beta-Binomial reconstruction +
 Robbins-Monro recentering) that lands the headline real-data result.
 On the published Liu 2024 paired cfDNA WGS/WGBS panel ($S=77$ patients,
-$L=782$ high-variance CpGs), HAVI-Methyl (full torch) achieves Pearson
-$r = 0.455$ versus a FinaleMe-style HMM baseline at $r = 0.078$ (cf.
-`docs/report/figures/finaleme_paired_metrics.png`). All six
-implementation phases of [`IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md)
-are complete.
+$L=782$ high-variance CpGs), HAVI-Methyl (full torch, $500$ iterations
+on a single A10G GPU) achieves Pearson $r = 0.467$ versus a
+FinaleMe-style HMM baseline at $r = 0.078$ (a $\sim 6.0\times$ lift;
+AUC $0.750$ vs $0.564$; credible-interval ECE $0.311$ vs $0.474$; cf.
+`docs/report/figures/finaleme_paired_metrics.png`). On the
+Loyfer/UXM_deconv U25 panel the variance-weighted Dirichlet head wins
+LOO RMSE at every one of the 36 cell types (overall $0.017$ vs lstsq
+$0.028$). All six implementation phases of
+[`IMPLEMENTATION_ROADMAP.md`](docs/IMPLEMENTATION_ROADMAP.md) are
+complete; the only remaining research direction is prospective
+clinical validation.
 
 Repository layout:
 
@@ -49,6 +55,8 @@ Sec. 11.
 
 ## Quickstart
 
+### Simplified-numpy path (CPU, runs in seconds)
+
 ```python
 import numpy as np
 import havi_methyl as hm
@@ -67,6 +75,36 @@ pred_havi, std_havi = hm.predict_with_state(state, pred_baseline, sim.n)
 print("FinaleMe Pearson r:", round(hm.pearson_r(sim.beta_sample, pred_baseline), 3))
 print("HAVI-Methyl Pearson r:", round(hm.pearson_r(sim.beta_sample, pred_havi), 3))
 ```
+
+### Full torch SVI path (GPU; lands the headline real-data row)
+
+```python
+import havi_methyl as hm
+from havi_methyl import TorchSVIConfig, fit_svi_torch, predict_with_torch_state
+
+sim = hm.simulate_dataset_chromatin_aware(S=16, L=400, coverage=2.0, rng=20260429)
+
+cfg = TorchSVIConfig(
+    in_dim=5, hidden=32, num_inducing=16, num_layers=2,
+    kappa=20.0, posterior="gaussian",
+    k_iwae=4, iwae_dreg=True,           # Tucker-2019 DReG-IWAE
+)
+
+state = fit_svi_torch(
+    bags=sim.bags,
+    n_frag=sim.n,                       # WGS fragment counts (encoder feature)
+    n_meth=sim.n_meth,                  # Beta-Binomial successes
+    n_obs=sim.n_total,                  # Beta-Binomial trials (= WGBS coverage on real data)
+    n_iter=500, config=cfg, seed=20260429,
+)
+pred, var = predict_with_torch_state(state, sim.bags, sim.n)
+```
+
+For *real* Liu 2024 paired data the same code path consumes
+`load_finaleme_dataset(...)` directly and the BB-trials slot must be
+`ds.n_total` (WGBS coverage), not `ds.n` (WGS fragment count) — that
+is the bug fix that lifts the full torch loop from $r = -0.07$ to
+$r = 0.467$ on the panel.
 
 ## Reproducing the paper
 
@@ -101,7 +139,7 @@ python3 scripts/bench_finaleme_realdata.py \
     --manifest data/finaleme_manifest/sample_pairs.csv \
     --locus-panel data/finaleme_manifest/high_variance_cpgs.hg19.bed \
     --buffy-coat-bw /path/to/wgbs_buffyCoat_jensen2015GB.methy.hg19.bw \
-    --torch-svi --torch-iter 200 --torch-device cuda --torch-iwae-k 4 \
+    --torch-svi --torch-iter 500 --torch-device cuda --torch-iwae-k 4 \
     --torch-snapshot-every 20
 python3 scripts/fig_finaleme_coverage_strat.py    # per-stratum breakdown
 python3 scripts/fig_finaleme_paired_scatter.py    # hexbin density
@@ -169,7 +207,7 @@ src/havi_methyl/
   bounds.py           Hierarchical pooling + Fano lower bound (Sec. 13)
   pipeline.py         End-to-end synthetic experiment harness (Sec. 11)
   utils.py            Numerics, RNG, metrics, validation
-tests/                Pytest suite (108 tests, all passing)
+tests/                Pytest suite (156 tests; 9 torch-conditional skips on numpy-only install)
 scripts/              Figure / table / benchmark scripts + run_all.sh
 notebooks/            Tutorials: simulator, inference, calibration
 docs/report/          The 52-page manuscript + supporting code

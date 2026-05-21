@@ -75,10 +75,10 @@ underlies the synthetic recovery.
 
 ![ELBO trajectory](assets/figures/elbo_trajectory.png)
 
-The Gaussian-head objective decreases monotonically over 200 iterations
-on an A10 GPU and per-iteration Pearson $r$ against the WGBS empirical
-$\beta$ rises in lockstep, terminating at $r = 0.455$ — exactly the
-headline number in the [Results](results.md) page.
+The Gaussian-head objective decreases monotonically over $500$ iterations
+on a single A10G GPU and per-iteration Pearson $r$ against the WGBS
+empirical $\beta$ rises in lockstep, terminating at $r = 0.467$ —
+exactly the headline number in the [Results](results.md) page.
 
 Snapshots are taken every 20 iterations via
 `TorchSVIConfig.snapshot_every` and stored in

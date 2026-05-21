@@ -86,7 +86,7 @@ script `scripts/fig_calibration.py`.
 ![ELBO trajectory](assets/figures/elbo_trajectory.png)
 
 ELBO + per-iteration Pearson $r$ from the real Liu 2024 torch SVI run
-on an A10 GPU; final $r = 0.455$ matches the headline real-data row.
-**Source:** the `TorchSVIState.elbo_history` and `snapshots` of the
-real-data bench, captured by `--torch-snapshot-every 20`; script
-`scripts/fig_elbo_trajectory.py`.
+on a single A10G GPU ($500$ iterations); final $r = 0.467$ matches the
+headline real-data row. **Source:** the `TorchSVIState.elbo_history` and
+`snapshots` of the real-data bench, captured by `--torch-snapshot-every 20`;
+script `scripts/fig_elbo_trajectory.py`.

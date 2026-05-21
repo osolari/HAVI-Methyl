@@ -24,7 +24,9 @@ $n^{\mathrm{cpg}}_{s,\ell}$ is the WGBS *read coverage* at the CpG —
 the encoder context. The loader exposes this explicitly:
 `load_finaleme_dataset` returns both `ds.n` (WGS fragment counts,
 $S\times L$) and `ds.n_total` (WGBS coverage, $S\times L$), and only the
-latter belongs in the Beta-Binomial trials slot. See the
+latter belongs in the Beta-Binomial trials slot. Conflating the two
+collapses the full-torch posterior to $r \approx 0$; the fix is what
+lifts HAVI-Methyl from $r = -0.07$ to $r = 0.467$ on Liu 2024. See the
 [Architecture](architecture.md) page for the exact `n_obs=ds.n_total`
 contract.
 

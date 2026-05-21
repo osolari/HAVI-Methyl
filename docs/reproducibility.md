@@ -52,7 +52,7 @@ expensive re-fit.
 `outputs/tables/bench_finaleme_realdata.csv` already contains a real
 `_status="Liu 2024..."` row, the script will not overwrite it with the
 synthetic-proxy fallback when the lab drive is unmounted. This is what
-keeps the headline Pearson $r = 0.455$ row alive across local CPU
+keeps the headline Pearson $r = 0.467$ row alive across local CPU
 re-runs that cannot see `/Volumes/Omid Solari/finaleme/`.
 
 To force a re-run, delete `bench_finaleme_realdata.csv` before invoking
@@ -98,11 +98,13 @@ Each test verifies a specific theoretical claim from the manuscript:
 
 ## Compute environment notes
 
-The headline Liu 2024 real-data row was produced on a single A10 GPU.
-The numpy-only synthetic benches run on CPU in minutes. The Phase 5
-torch run uses `a10-dev` over SSH (`ssh a10-dev`); the bench script
-auto-detects the lab drive at `/cb/home/omids/data/finaleme` when run
-on that host, and at `/Volumes/Omid Solari/finaleme/` when run locally.
+The headline Liu 2024 real-data row was produced by a $500$-iteration
+training of `fit_svi_torch` on a single NVIDIA A10G GPU with mini-batch
+sizes $|B_s|=16$, $|B_\ell|=128$ and $K=4$ IWAE samples. The numpy-only
+synthetic benches run on CPU in minutes. The Phase 5 torch run uses
+`a10-dev` over SSH (`ssh a10-dev`); the bench script auto-detects the
+lab drive at `/cb/home/omids/data/finaleme` when run on that host, and
+at `/Volumes/Omid Solari/finaleme/` when run locally.
 
 !!! note "macOS Removable-Volumes TCC"
     On macOS the running VS Code process must have explicit

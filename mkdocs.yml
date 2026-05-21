@@ -111,6 +111,10 @@ markdown_extensions:
 
 plugins:
   - search
+  - mkdocs-jupyter:
+      include_source: true
+      execute: false
+      include: ["tutorials/*.ipynb"]
   - mkdocstrings:
       handlers:
         python:

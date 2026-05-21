@@ -49,12 +49,12 @@ We synthesize a buffy-coat prior input correlated with disease status by adding 
 Across mixtures of three synthetic tissues, the simplified continuous deconvolution proxy achieves tissue-fraction RMSE of $0.007$ versus $0.129$ for a FinaleMe-derived binarize-and-deconvolve baseline. The result illustrates the cost of binarization in a synthetic setting. It should not be read as a completed evaluation of the full Dirichlet or HDP tissue-of-origin head in Section~\ref{sec:too}.
 
 \subsection{Surrogate objective trajectory}
-Figure~\ref{fig:elbo} shows the per-iteration ELBO trajectory from the released torch SVI loop (\texttt{fit\_svi\_torch}) on real Liu 2024 paired data with the Beta-Binomial trials parameter correctly set to WGBS read coverage. The Gaussian-head objective decreases monotonically over 200 iterations on an A10G GPU and per-iteration Pearson $r$ against the WGBS empirical $\beta$ rises in lockstep, terminating at $r=0.455$ versus a FinaleMe-style HMM baseline of $r=0.078$ on the same panel (cf.\ Section~\ref{sec:benchmark:real}).
+Figure~\ref{fig:elbo} shows the per-iteration ELBO trajectory from the released torch SVI loop (\texttt{fit\_svi\_torch}) on real Liu 2024 paired data with the Beta-Binomial trials parameter correctly set to WGBS read coverage. The Gaussian-head objective decreases monotonically over $500$ iterations on a single A10G GPU and per-iteration Pearson $r$ against the WGBS empirical $\beta$ rises in lockstep, terminating at $r=0.467$ versus a FinaleMe-style HMM baseline of $r=0.078$ on the same panel (cf.\ Section~\ref{sec:benchmark:real}).
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.85\textwidth]{figures/elbo_trajectory.png}
-\caption{ELBO and Pearson-$r$ training curves of \texttt{fit\_svi\_torch} on real Liu 2024 cfDNA paired data (200 iterations on an A10G GPU). Snapshots taken every 20 iterations; final $r$ matches the headline real-data row of \texttt{bench\_finaleme\_realdata.csv}.}
+\caption{ELBO and Pearson-$r$ training curves of \texttt{fit\_svi\_torch} on real Liu 2024 cfDNA paired data ($500$ iterations on a single A10G GPU). Snapshots taken every $20$ iterations; final $r=0.467$ matches the headline real-data row of \texttt{bench\_finaleme\_realdata.csv}.}
 \label{fig:elbo}
 \end{figure}
 

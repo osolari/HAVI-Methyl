@@ -14,7 +14,7 @@ $\ge 40\%$ of samples.
 
 The full HAVI-Methyl torch loop (Set Transformer + Gaussian posterior +
 Beta-Binomial reconstruction + Robbins-Monro recentering) was trained
-200 iterations on a single A10 GPU with the Beta-Binomial trials
+$500$ iterations on a single A10G GPU with the Beta-Binomial trials
 parameter set to the WGBS read coverage (`ds.n_total`), not the WGS
 fragment count.
 
@@ -37,7 +37,8 @@ section.
 The simplified-numpy ablations are deliberately initialised from the
 FinaleMe baseline and therefore reproduce its per-locus mean almost
 exactly. The architectural lift over the baseline ($r=0.078 \to 0.467$,
-$\sim 6.0\times$) is the flow- and Set-Transformer-driven head.
+a $\sim 6.0\times$ improvement; AUC $0.564 \to 0.750$; credible-interval
+ECE $0.474 \to 0.311$) is the flow- and Set-Transformer-driven head.
 
 ### Per-locus density
 
@@ -57,17 +58,20 @@ the *only* method with positive correlation in every stratum. From
 
 | Stratum | $n$ points | FinaleMe HMM | HAVI simplified | **HAVI full torch** |
 |---|---:|---:|---:|---:|
-| $\beta$ extreme ($n_{\mathrm{total}}\approx 1$) | 22 443 | 0.148 | 0.153 | **0.638** |
-| $\beta$ interior (multi-read) | 37 771 | $-0.049$ | $-0.048$ | **0.277** |
-| $\beta$ middle ($0.1 < \beta < 0.9$) | 37 437 | $-0.035$ | $-0.034$ | **0.257** |
+| $\beta$ extreme ($n_{\mathrm{total}}\approx 1$) | 22 443 | 0.148 | 0.153 | **0.647** |
+| $\beta$ interior (multi-read) | 37 771 | $-0.049$ | $-0.048$ | **0.302** |
+| $\beta$ middle ($0.1 < \beta < 0.9$) | 37 437 | $-0.035$ | $-0.034$ | **0.278** |
 
 The 2-cluster EM ceiling of the FinaleMe baseline is the cause of the
 negative correlation in the interior and middle strata; it cannot
-extrapolate to non-binary methylation states.
+extrapolate to non-binary methylation states. HAVI-Methyl reaches
+$r \approx +0.28$ in the multi-read interior — the same stratum where
+the FinaleMe baseline is anti-correlated with truth at $r \approx -0.05$.
 
 ![Liu 2024 per-stratum](assets/figures/finaleme_coverage_strat.png)
 
-In the extreme stratum the gap widens to $r = 0.638$ vs $r = 0.148$.
+In the $\beta$-extreme stratum the gap widens to $r \approx +0.64$ vs
+$r \approx +0.15$.
 
 ## 3. Loyfer LOO tissue-of-origin
 

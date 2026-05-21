@@ -77,8 +77,8 @@ print("ELBO trajectory length:", len(state.elbo_history))
 ```
 
 This is the loop that lands the headline real-data row (Pearson
-$r = 0.455$ on Liu 2024). The same code path with
-`tissue_reference`/`tissue_target`/`tissue_weight` kwargs runs the
+$r = 0.467$ on Liu 2024, $500$-iteration A10G run). The same code path
+with `tissue_reference`/`tissue_target`/`tissue_weight` kwargs runs the
 variance-weighted Dirichlet head jointly (see
 [Tissue-of-origin](tissue.md)).
 
@@ -89,7 +89,7 @@ variance-weighted Dirichlet head jointly (see
     Beta-Binomial trial count, distinct from the WGS fragment count
     that feeds the encoder. Always pass `ds.n_total` from
     `load_finaleme_dataset` as `n_obs=`; the BB-trials bug fix is what
-    lifted HAVI-Methyl on Liu 2024 from $r = -0.07$ to $r = 0.455$
+    lifted HAVI-Methyl on Liu 2024 from $r = -0.07$ to $r = 0.467$
     (see the [Changelog](changelog.md)).
 
 ## Reproducing the manuscript
@@ -121,7 +121,7 @@ The Phase 5 benches consume real datasets via the loaders in
         --manifest data/finaleme_manifest/sample_pairs.csv \
         --locus-panel data/finaleme_manifest/high_variance_cpgs.hg19.bed \
         --buffy-coat-bw /path/to/wgbs_buffyCoat_jensen2015GB.methy.hg19.bw \
-        --torch-svi --torch-iter 200 --torch-device cuda --torch-iwae-k 4 \
+        --torch-svi --torch-iter 500 --torch-device cuda --torch-iwae-k 4 \
         --torch-snapshot-every 20
     ```
 
