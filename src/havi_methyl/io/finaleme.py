@@ -116,10 +116,10 @@ def _parse_locus_panel(
     if panel_path is None:
         # 5 kb-spaced default panel on chr1; only used if the caller
         # didn't supply a real panel and is happy with placeholder loci.
-        chrom = ["chr1"] * default_n
-        start = [i * 5000 + 1_000_000 for i in range(default_n)]
-        end = [s + 1 for s in start]
-        return chrom, start, end
+        chrom_default = ["chr1"] * default_n
+        start_default = [i * 5000 + 1_000_000 for i in range(default_n)]
+        end_default = [s + 1 for s in start_default]
+        return chrom_default, start_default, end_default
     chrom: list[str] = []
     start: list[int] = []
     end: list[int] = []

@@ -329,7 +329,7 @@ if HAS_TORCH:
             ctx_batch = torch.stack(ctx_list, dim=0)
             mu_prior = torch.tensor(mu_prior_list, dtype=torch.float32, device=device)
 
-            n_obs = torch.tensor(n_obs_list, dtype=torch.float32, device=device)
+            n_obs_t = torch.tensor(n_obs_list, dtype=torch.float32, device=device)
             n_m = torch.tensor(n_meth_list, dtype=torch.float32, device=device)
             kappa = cfg.kappa
             K = max(1, int(cfg.k_iwae))
@@ -366,8 +366,8 @@ if HAS_TORCH:
                 gamma = kappa * (1.0 - beta_k) + 1e-3
                 log_recon_k = (
                     torch.lgamma(n_m + alpha)
-                    + torch.lgamma(n_obs - n_m + gamma)
-                    - torch.lgamma(n_obs + alpha + gamma)
+                    + torch.lgamma(n_obs_t - n_m + gamma)
+                    - torch.lgamma(n_obs_t + alpha + gamma)
                     - torch.lgamma(alpha)
                     - torch.lgamma(gamma)
                     + torch.lgamma(alpha + gamma)
@@ -603,8 +603,8 @@ else:  # pragma: no cover
     class TorchSVIState:  # type: ignore[no-redef]
         pass
 
-    def fit_svi_torch(*args, **kwargs):  # type: ignore[no-redef]
+    def fit_svi_torch(*args, **kwargs):  # type: ignore[no-redef,misc]
         raise ImportError("torch is required for fit_svi_torch")
 
-    def predict_with_torch_state(*args, **kwargs):  # type: ignore[no-redef]
+    def predict_with_torch_state(*args, **kwargs):  # type: ignore[no-redef,misc]
         raise ImportError("torch is required for predict_with_torch_state")

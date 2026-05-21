@@ -179,8 +179,8 @@ try:
         predict_with_torch_state,
     )
 except ImportError:  # pragma: no cover
-    TorchSVIConfig = None  # type: ignore[assignment]
-    TorchSVIState = None  # type: ignore[assignment]
+    TorchSVIConfig = None  # type: ignore[assignment,misc]
+    TorchSVIState = None  # type: ignore[assignment,misc]
     fit_svi_torch = None  # type: ignore[assignment]
     predict_with_torch_state = None  # type: ignore[assignment]
 

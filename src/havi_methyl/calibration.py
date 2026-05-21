@@ -181,7 +181,7 @@ def worst_stratum_coverage(
         cov = float(((true[mask] >= lo[mask]) & (true[mask] <= hi[mask])).mean())
         out[int(stratum)] = cov
     if out:
-        out["worst"] = float(min(out.values()))
+        out["worst"] = float(min(out.values()))  # type: ignore[index]
     return out
 
 

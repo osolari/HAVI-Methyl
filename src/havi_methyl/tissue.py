@@ -162,8 +162,8 @@ def leave_one_tissue_out_stress(
         rmses[k] = float(np.sqrt(((pi_kept_true - pi_recovered) ** 2).mean()))
     return {
         "per_tissue_rmse": rmses,
-        "mean_rmse": float(rmses.mean()),
-        "worst_rmse": float(rmses.max()),
+        "mean_rmse": float(rmses.mean()),  # type: ignore[dict-item]
+        "worst_rmse": float(rmses.max()),  # type: ignore[dict-item]
     }
 
 
