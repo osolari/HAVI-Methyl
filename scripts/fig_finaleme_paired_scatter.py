@@ -46,10 +46,12 @@ def main() -> None:
     args = parser.parse_args()
 
     if not NPZ_PATH.exists():
-        raise SystemExit(
-            f"{NPZ_PATH} not found. Run scripts/bench_finaleme_realdata.py "
-            f"in real-data mode (--data-dir ... --manifest ... --buffy-coat-bw ...) first."
+        print(
+            f"(skipped: {NPZ_PATH} not found. Run "
+            f"scripts/bench_finaleme_realdata.py in real-data mode "
+            f"(--data-dir ... --manifest ... --buffy-coat-bw ...) first.)"
         )
+        return
     bundle = np.load(NPZ_PATH)
     truth = bundle["truth"].flatten()
     rng = np.random.default_rng(args.seed)

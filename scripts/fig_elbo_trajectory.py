@@ -48,16 +48,19 @@ def main() -> None:
     parser.parse_args()
 
     if not NPZ_PATH.exists():
-        raise SystemExit(
-            f"{NPZ_PATH} not found. Run scripts/bench_finaleme_realdata.py "
-            f"--torch-svi --torch-snapshot-every 20 to populate."
+        print(
+            f"(skipped: {NPZ_PATH} not found. Run "
+            f"scripts/bench_finaleme_realdata.py --torch-svi --torch-snapshot-every 20 "
+            f"to populate.)"
         )
+        return
     bundle = np.load(NPZ_PATH)
     if "torch_elbo_history" not in bundle:
-        raise SystemExit(
-            "torch_elbo_history missing from the npz. Re-run with the latest "
-            "bench_finaleme_realdata.py."
+        print(
+            "(skipped: torch_elbo_history missing from the npz; re-run "
+            "bench_finaleme_realdata.py --torch-svi --torch-snapshot-every 20.)"
         )
+        return
 
     elbo = np.asarray(bundle["torch_elbo_history"], dtype=np.float64)
     iters = np.arange(1, len(elbo) + 1)

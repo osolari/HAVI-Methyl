@@ -46,7 +46,8 @@ def main() -> None:
     parser.parse_args()
 
     if not NPZ_PATH.exists():
-        raise SystemExit(f"{NPZ_PATH} not found; re-run scripts/bench_finaleme_realdata.py.")
+        print(f"(skipped: {NPZ_PATH} not found; re-run scripts/bench_finaleme_realdata.py.)")
+        return
     d = np.load(NPZ_PATH)
     truth = d["truth"]
     truth_f = truth.flatten()
