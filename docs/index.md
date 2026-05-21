@@ -13,11 +13,11 @@ hide:
   Robbins-Monro recentering, trained end-to-end on real Liu 2024 paired
   cfDNA WGS/WGBS, with calibrated per-CpG posteriors and a
   variance-weighted Dirichlet tissue-of-origin head.</p>
-  <p class="saim-hero-badges">
-    <a href="https://github.com/osolari/HAVI-Methyl">GitHub</a>
-    <a href="https://github.com/osolari/HAVI-Methyl/blob/main/docs/report/main.pdf">Manuscript PDF</a>
-    <a href="quickstart/">Quickstart</a>
-    <a href="results/">Real-data results</a>
+  <p class="saim-hero-badges" markdown="span">
+    [GitHub](https://github.com/osolari/HAVI-Methyl)
+    [Manuscript PDF](https://github.com/osolari/HAVI-Methyl/blob/main/docs/report/main.pdf)
+    [Quickstart](quickstart.md)
+    [Real-data results](results.md)
   </p>
 </div>
 
