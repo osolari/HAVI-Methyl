@@ -16,8 +16,8 @@ hide:
   <p class="saim-hero-badges">
     <a href="https://github.com/osolari/HAVI-Methyl">GitHub</a>
     <a href="https://github.com/osolari/HAVI-Methyl/blob/main/docs/report/main.pdf">Manuscript PDF</a>
-    <a href="quickstart.md">Quickstart</a>
-    <a href="results.md">Real-data results</a>
+    <a href="quickstart/">Quickstart</a>
+    <a href="results/">Real-data results</a>
   </p>
 </div>
 
