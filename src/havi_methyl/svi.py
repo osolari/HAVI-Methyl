@@ -222,8 +222,8 @@ def fit_svi_full(
     for t in range(n_iter):
         sample_idx = gen.choice(S, size=bs, replace=False)
         loci_idx = gen.choice(L, size=bl, replace=False)
-        eta_batch = eta_obs_full[np.ix_(sample_idx, loci_idx)]
-        prec_batch = obs_prec_full[np.ix_(sample_idx, loci_idx)]
+        eta_batch = eta_obs_full[np.ix_(sample_idx, loci_idx)]  # type: ignore[call-overload]
+        prec_batch = obs_prec_full[np.ix_(sample_idx, loci_idx)]  # type: ignore[call-overload]
         rho = robbins_monro_step(t, exponent=rho_exponent)
 
         # Population update on the locus mini-batch.
