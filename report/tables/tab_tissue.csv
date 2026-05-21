@@ -1,3 +1,3 @@
 method,tissue_fraction_rmse,status
-FinaleMe-binarized + QP deconvolution,0.12924691471544858,simplified synthetic proxy
-HAVI-Methyl simplified continuous proxy,0.0069450800924112785,simplified synthetic proxy
+FinaleMe-binarized + QP deconvolution,0.17418626950780153,simplified synthetic proxy
+HAVI-Methyl simplified continuous proxy,0.015352659023256774,simplified synthetic proxy

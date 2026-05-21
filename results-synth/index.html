@@ -1502,10 +1502,10 @@ torch SVI run</strong>, not synthetic data — the figure is included here as
 the runnable training-curve diagnostic produced by the same loop that
 underlies the synthetic recovery.</p>
 <p><img alt="ELBO trajectory" src="../assets/figures/elbo_trajectory.png" /></p>
-<p>The Gaussian-head objective decreases monotonically over 200 iterations
-on an A10 GPU and per-iteration Pearson <span class="arithmatex">\(r\)</span> against the WGBS empirical
-<span class="arithmatex">\(\beta\)</span> rises in lockstep, terminating at <span class="arithmatex">\(r = 0.455\)</span> — exactly the
-headline number in the <a href="../results/">Results</a> page.</p>
+<p>The Gaussian-head objective decreases monotonically over <span class="arithmatex">\(500\)</span> iterations
+on a single A10G GPU and per-iteration Pearson <span class="arithmatex">\(r\)</span> against the WGBS
+empirical <span class="arithmatex">\(\beta\)</span> rises in lockstep, terminating at <span class="arithmatex">\(r = 0.467\)</span> —
+exactly the headline number in the <a href="../results/">Results</a> page.</p>
 <p>Snapshots are taken every 20 iterations via
 <code>TorchSVIConfig.snapshot_every</code> and stored in
 <code>TorchSVIState.snapshots</code>, which is what

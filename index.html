@@ -1305,7 +1305,9 @@ is a separate stream feeding only the encoder context.</p>
 <span class="arithmatex">\(L=782\)</span> high-variance CpGs, manifest-paired via Supplementary Table 1),
 the full HAVI-Methyl torch loop (Set Transformer + Gaussian posterior +
 Beta-Binomial reconstruction + Robbins-Monro recentering) trained
-500 iterations on a single A10G GPU.</p>
+<span class="arithmatex">\(500\)</span> iterations on a single A10G GPU achieves a <span class="arithmatex">\(\sim 6.0\times\)</span> lift in
+Pearson <span class="arithmatex">\(r\)</span> over the FinaleMe-style HMM baseline (<span class="arithmatex">\(0.467\)</span> vs.\ <span class="arithmatex">\(0.078\)</span>),
+AUC <span class="arithmatex">\(0.750\)</span> vs.\ <span class="arithmatex">\(0.564\)</span>, credible-interval ECE <span class="arithmatex">\(0.311\)</span> vs.\ <span class="arithmatex">\(0.474\)</span>.</p>
 <table>
 <thead>
 <tr>
@@ -1363,6 +1365,19 @@ bound how much of the gap can be attributed to hierarchical shrinkage
 alone. The architectural lift comes from the Set Transformer +
 Beta-Binomial head, run with the <em>correct</em> trials parameter
 (<code>ds.n_total</code> = WGBS read coverage, not <code>ds.n</code> = WGS fragment count).</p>
+<p>Five further results round out the picture: (i) <strong>per-stratum recovery</strong> —
+HAVI is the only method with positive Pearson <span class="arithmatex">\(r\)</span> in every WGBS-depth
+stratum (interior <span class="arithmatex">\(\approx +0.28\)</span> vs. FinaleMe <span class="arithmatex">\(\approx -0.05\)</span>; extreme
+<span class="arithmatex">\(\approx +0.64\)</span> vs. <span class="arithmatex">\(\approx +0.15\)</span>); (ii) <strong>Loyfer LOO tissue-of-origin</strong>
+— the variance-weighted Dirichlet head wins LOO RMSE at every one of the
+36 cell types in the U25 panel (<span class="arithmatex">\(0.017\)</span> vs. lstsq <span class="arithmatex">\(0.028\)</span>);
+(iii) <strong>multi-seed synthetic recovery</strong> — <span class="arithmatex">\(N=20\)</span> seeds, non-overlapping
+<span class="arithmatex">\(90\%\)</span> bootstrap intervals at <span class="arithmatex">\(0.1\times\)</span>, <span class="arithmatex">\(1\times\)</span>, <span class="arithmatex">\(5\times\)</span>;
+(iv) <strong>App. H simulator validation</strong> — all five axes verified after a
+3-mode length-mixture re-fit to real Liu 2024 fragments;
+(v) <strong>prior-leakage stress</strong> — prior attribution drops from <span class="arithmatex">\(5.93\%\)</span> to
+<span class="arithmatex">\(0.62\%\)</span> via VIB and to <span class="arithmatex">\(0.037\%\)</span> with mQTL anchors. See
+<a href="results/">Real-data results</a> for the full breakdown.</p>
 <h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <div class="grid cards">
 <ul>

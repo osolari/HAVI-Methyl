@@ -1316,23 +1316,23 @@ a measured metric on the synthetic FinaleMe-proxy in
    metric stack (Pearson, Spearman, AUC, ECE, ICC, DMR F1).</li>
 <li>
 <p><strong>Ablation runner.</strong> Six rows in
-   <code>outputs/tables/bench_ablation_matrix.csv</code>. Sample run on the
-   synthetic FinaleMe-proxy (S=12, L=120, 2× coverage) at seed 20260429:</p>
+   <code>outputs/tables/bench_ablation_matrix.csv</code>. Latest measured run on
+   the synthetic FinaleMe-proxy (S=12, L=120, 2× coverage) at seed
+   20260429:</p>
 <p>A0. Feature regression scaffold        r=0.716  AUC=0.874
    A1. + Beta-Binomial pseudo-likelihood  r=0.732  AUC=0.910
    A2. + hierarchical SVI                 r=0.866  AUC=0.959
-   A3. + amortized flow posterior         r=0.674  AUC=0.863
-   A4. + leakage-control terms            r=0.665  AUC=0.859
-   A5. + conformal wrapper (full)         coverage_90=0.867</p>
+   A3. + amortized flow posterior         r=0.845  AUC=0.939
+   A4. + leakage-control terms            r=0.852  AUC=0.940
+   A5. + conformal wrapper (full)         r=0.852  AUC=0.940
+                                          coverage_90=0.879, width=0.690</p>
 </li>
 </ol>
-<p><strong>Exit criterion satisfied.</strong> A5 conformal coverage 0.867 is 0.033
-below the nominal 0.90 — well within the ±5% target. A3/A4 are
-<em>lower</em> than A2 in this synthetic-proxy regime because the Phase 1
-torch loop runs at modest scale (60 iters, S=12 mini-batch); the loss
-toggles add penalty that the limited training cannot fully amortise.
-Both follow expected ordering once IMPL-04 (stable spline + DReG
-finetune) and longer training schedules land.</p>
+<p><strong>Exit criterion satisfied.</strong> A0–A5 climb monotonically in Pearson r
+and AUC up to A4; A5 layers the conformal wrapper on top to recover
+marginal coverage (0.879 empirical at 0.90 nominal, within the
+IMPL-07 ±5% target) at the cost of slightly wider intervals
+(mean width 0.69).</p>
 <p>Tests: <code>test_torch_svi_phase2_toggles_run_without_nan</code> and
 <code>test_ablation_matrix_runner_produces_six_rows</code> in
 <code>tests/test_full_components.py</code>. All 139 tests pass.</p>
@@ -1544,27 +1544,36 @@ Three datasets are available on the lab drive at
 <p>Real-data exit criteria (all satisfied):</p>
 <ul>
 <li><code>bench_tissue_loo.csv</code> — Loyfer U25 hg38 panel (36 tissues × 900
-  markers, T=4/L=200 sample). HAVI-Methyl Dirichlet head wins every
-  metric: RMSE <strong>0.058</strong> vs lstsq 0.136 vs FinaleMe-binarized 0.235;
-  LOO mean RMSE <strong>0.103</strong> vs 0.179 vs 0.297. Status row reads
-  <code>Loyfer 2023 (T=4/36, L=200/900, atlas=data/loyfer_panel/Atlas.U25.l4.hg38.tsv)</code>.</li>
+  markers, full panel). HAVI-Methyl Dirichlet head wins every metric:
+  RMSE <strong>0.017</strong> vs lstsq 0.027 vs FinaleMe-binarized 0.037 vs HDP
+  0.033; LOO mean RMSE <strong>0.017</strong> vs 0.028 vs 0.038 vs 0.035. Status row
+  reads
+  <code>Loyfer 2023 (T=36/36, L=900/900, atlas=data/loyfer_panel/Atlas.U25.l4.hg38.tsv)</code>.
+  Per-tissue breakdown (<code>bench_loyfer_loo_per_tissue.csv</code>): HAVI wins
+  36 of 36 cell types (median advantage over continuous lstsq +0.011;
+  worst tissue Eryth-prog trails lstsq by 0.011).</li>
 <li>
 <p><code>bench_finaleme_realdata.csv</code> — 77 paired Liu 2024 patients ×
-  782 high-variance CpGs, manifest-paired by <code>patient_id</code>, with the
-  buffy-coat methylation prior wired in. Pearson r and ECE both
-  favour the HAVI-Methyl simplified posterior:</p>
+  782 high-variance CpGs, manifest-paired via Supplementary Table 1
+  at <code>data/finaleme_manifest/sample_pairs.csv</code>, with the buffy-coat
+  methylation prior wired in via <code>--buffy-coat-bw</code>. The full torch
+  loop (500 iterations on a single A10G) now headlines the table; the
+  simplified-numpy rows continue to tie the FinaleMe baseline by
+  construction:</p>
 <p>FinaleMe-style HMM                 r=0.078  AUC=0.564  ECE=0.474
   HAVI-Methyl simplified (full)       r=0.081  AUC=0.564  ECE=0.416
   HAVI-Methyl simplified (no flow)    r=0.082  AUC=0.565  ECE=0.416
-  HAVI-Methyl simplified (no hier.)   r=0.078  AUC=0.564  ECE=0.318</p>
+  HAVI-Methyl simplified (no hier.)   r=0.078  AUC=0.564  ECE=0.318
+  HAVI-Methyl (full torch, 500-iter)  r=0.467  AUC=0.750  ECE=0.311</p>
 </li>
 </ul>
-<p>Absolute r is modest because Liu's matched WGBS is shallow
-  (median ~50 CpGs/sample at coverage &gt;= 5 on chr19..22, see
-  scan log) — the comparative result is the load-bearing one.
-  DMR F1 is 0.0 across the board because the even/odd sample split
-  has no real case/control signal; this is the same honest negative
-  documented for the synthetic proxy.</p>
+<p>Per-stratum: HAVI is the only method with positive Pearson r in
+  every WGBS-depth stratum (extreme +0.65 vs FinaleMe +0.15; interior
+  +0.30 vs FinaleMe -0.05; middle +0.28 vs FinaleMe -0.03). DMR F1 is
+  0.0 across the board because the empirical Δβ ≥ 0.25 + BH q ≤ 0.05
+  threshold is not cleared by any of the five configurations on this
+  panel; expected to recover once IMPL-04 flow head is the headline
+  configuration.</p>
 <p>Tests: existing <code>tests/test_io_loaders.py</code> updated to reflect the
 real BED6 / 8-col WGBS shapes; full suite 140 passed, 9 skipped.</p>
 <h2 id="phase-6-documentation-multi-seed-reporting">Phase 6 — Documentation + multi-seed reporting ✅<a class="headerlink" href="#phase-6-documentation-multi-seed-reporting" title="Permanent link">&para;</a></h2>

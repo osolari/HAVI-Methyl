@@ -1399,10 +1399,10 @@ trials parameter must be <code>ds.n_total</code> (WGBS coverage), not
 <code>ds.n</code> (WGS fragment count). They are <em>different observation
 streams</em>: WGBS coverage measures direct methylation reads, WGS
 fragment count measures cfDNA fragments visible to the encoder.
-Using <code>ds.n</code> lifts HAVI-Methyl from <span class="arithmatex">\(r = -0.07\)</span> to <span class="arithmatex">\(r = 0.455\)</span> on
-the Liu 2024 panel; the same number with the wrong stream is
-negatively correlated with truth. See
-<a href="../changelog/">Changelog</a> for the full incident.</p>
+Using <code>ds.n_total</code> (correctly) lifts HAVI-Methyl from <span class="arithmatex">\(r = -0.07\)</span>
+to <span class="arithmatex">\(r = 0.467\)</span> on the Liu 2024 panel (<span class="arithmatex">\(500\)</span>-iteration A10G run);
+the same loop with the wrong stream is negatively correlated with
+truth. See <a href="../changelog/">Changelog</a> for the full incident.</p>
 </div>
 <h3 id="jensen-2015-buffy-coat-prior">Jensen 2015 buffy-coat prior<a class="headerlink" href="#jensen-2015-buffy-coat-prior" title="Permanent link">&para;</a></h3>
 <p>The <code>buffy_coat_bw=</code> kwarg points at the Jensen 2015 cfDNA WGBS prior

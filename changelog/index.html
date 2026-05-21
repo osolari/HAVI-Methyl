@@ -1322,12 +1322,16 @@ tracks code-level changes separately.</p>
 <p>The BB-trials bug fix (using WGBS read coverage <code>ds.n_total</code> rather
 than WGS fragment count <code>ds.n</code> as the Beta-Binomial trials) lifts
 HAVI-Methyl (full torch) on the Liu 2024 paired panel from <span class="arithmatex">\(r = -0.07\)</span>
-to <strong><span class="arithmatex">\(r = 0.455\)</span> vs FinaleMe-style HMM <span class="arithmatex">\(r = 0.078\)</span> (<span class="arithmatex">\(\sim 5.8\times\)</span>),
-AUC <span class="arithmatex">\(0.74\)</span> vs <span class="arithmatex">\(0.56\)</span>, ECE <span class="arithmatex">\(0.32\)</span> vs <span class="arithmatex">\(0.47\)</span>.</strong> Per-stratum: HAVI is the
-only method with positive Pearson <span class="arithmatex">\(r\)</span> in every WGBS-depth stratum
-(FinaleMe is anti-correlated at <span class="arithmatex">\(r = -0.05\)</span> in the multi-read
-interior). On the Loyfer/UXM_deconv U25 panel the variance-weighted
-Dirichlet head wins LOO RMSE at every one of the 36 cell types.</p>
+to <strong><span class="arithmatex">\(r = 0.467\)</span> vs FinaleMe-style HMM <span class="arithmatex">\(r = 0.078\)</span> (<span class="arithmatex">\(\sim 6.0\times\)</span>,
+<span class="arithmatex">\(500\)</span>-iteration A10G run; the 200-iteration intermediate snapshot
+landed <span class="arithmatex">\(r = 0.455\)</span>), AUC <span class="arithmatex">\(0.750\)</span> vs <span class="arithmatex">\(0.564\)</span>, ECE <span class="arithmatex">\(0.311\)</span> vs <span class="arithmatex">\(0.474\)</span>.</strong>
+Per-stratum: HAVI is the only method with positive Pearson <span class="arithmatex">\(r\)</span> in
+every WGBS-depth stratum (FinaleMe is anti-correlated at <span class="arithmatex">\(r = -0.05\)</span>
+in the multi-read interior; HAVI reaches <span class="arithmatex">\(r \approx +0.28\)</span> there and
+<span class="arithmatex">\(r \approx +0.64\)</span> in the <span class="arithmatex">\(\beta\)</span>-extreme stratum). On the
+Loyfer/UXM_deconv U25 panel the variance-weighted Dirichlet head wins
+LOO RMSE at every one of the 36 cell types (<span class="arithmatex">\(0.017\)</span> vs <span class="arithmatex">\(0.028\)</span> vs
+<span class="arithmatex">\(0.038\)</span> vs <span class="arithmatex">\(0.035\)</span>).</p>
 <h3 id="figure-overhaul">Figure overhaul<a class="headerlink" href="#figure-overhaul" title="Permanent link">&para;</a></h3>
 <p>Nine real-data + synthetic figures shipped:
 <code>finaleme_paired_metrics</code>, <code>finaleme_paired_scatter</code> (5-panel hexbin),

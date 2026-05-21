@@ -1175,10 +1175,19 @@
 
 
 <h1 id="status-snapshot">Status snapshot<a class="headerlink" href="#status-snapshot" title="Permanent link">&para;</a></h1>
-<p>Last updated: 2026-05-17. Authoritative roadmap remains
+<p>Last updated: 2026-05-20. Authoritative roadmap remains
 <a href="../report/CODING_AGENT_HANDOFF/"><code>docs/report/CODING_AGENT_HANDOFF.md</code></a>;
 this file is the repo-side snapshot of where the implementation
 actually stands today.</p>
+<p><strong>Headline.</strong> HAVI-Methyl (full torch) on the Liu 2024 paired panel:
+<span class="arithmatex">\(r = 0.467\)</span> vs FinaleMe-style HMM <span class="arithmatex">\(r = 0.078\)</span> (<span class="arithmatex">\(\sim 6.0\times\)</span> lift;
+<span class="arithmatex">\(500\)</span>-iteration A10G run, AUC <span class="arithmatex">\(0.750\)</span> vs <span class="arithmatex">\(0.564\)</span>, credible-interval
+ECE <span class="arithmatex">\(0.311\)</span> vs <span class="arithmatex">\(0.474\)</span>, ICC(2,1) <span class="arithmatex">\(0.436\)</span> vs <span class="arithmatex">\(0.052\)</span>). Loyfer U25 LOO:
+HAVI Dirichlet head wins all 36/36 cell types (<span class="arithmatex">\(0.017\)</span> vs lstsq <span class="arithmatex">\(0.028\)</span>).
+All 5 App. H simulator-validation axes are verified; all four open
+follow-ups from §14 (App. H, GRL, joint ToO, DReG) are closed.
+The only remaining research direction is prospective clinical
+validation.</p>
 <h2 id="what-runs-end-to-end-today">What runs end-to-end today<a class="headerlink" href="#what-runs-end-to-end-today" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Sec. 11 simplified harness</strong> — single canonical pipeline run via
@@ -1212,7 +1221,8 @@ actually stands today.</p>
   (S=12, L=120, 2× coverage) and writes <code>bench_ablation_matrix.csv</code>
   with measured Pearson, Spearman, AUC, ICC, DMR F1, ECE, and
   (for A5) conformal coverage at the 0.90 nominal level. Exit
-  criterion (A5 coverage within ±5% of nominal) is satisfied at 0.867.</li>
+  criterion (A5 coverage within ±5% of nominal) is satisfied at 0.879
+  (mean interval width 0.69).</li>
 <li><strong>Phase 3 tissue LOO</strong> — <code>scripts/bench_tissue_loo.py</code> compares
   four deconvolution methods (FinaleMe-binarized, continuous lstsq,
   HAVI-Methyl Dirichlet head, HDP-truncated) on a synthetic 4-tissue
@@ -1253,23 +1263,25 @@ actually stands today.</p>
     <code>Atlas.U25.l4.hg38.tsv</code> panel (36 tissues × 900 markers). On the
     full panel the HAVI-Methyl Dirichlet head wins every metric: RMSE
     0.017 vs lstsq 0.027 vs FinaleMe-binarized 0.037 vs HDP 0.033;
-    LOO mean RMSE 0.017 vs 0.028 vs 0.038 vs 0.035. <code>_status</code> reflects
-    the Loyfer source. The per-tissue breakdown
-    (<code>bench_loyfer_loo_per_tissue.csv</code>) confirms HAVI wins all 36/36
-    cell types.</li>
+    LOO mean RMSE 0.017 vs lstsq 0.028 vs FinaleMe-binarized 0.038 vs
+    HDP-truncated 0.035. <code>_status</code> reflects the Loyfer source. The
+    per-tissue breakdown (<code>bench_loyfer_loo_per_tissue.csv</code>) confirms
+    HAVI wins all 36/36 cell types (median advantage over continuous
+    lstsq +0.011; worst tissue Eryth-prog trails lstsq by 0.011).</li>
 <li><code>bench_finaleme_realdata.csv</code> runs the <strong>full torch SVI loop</strong>
     against the Liu 2024 paired cfDNA WGS + WGBS files at
     <code>/Volumes/Omid Solari/finaleme/</code> (paired via Supplementary Table 1
     at <code>data/finaleme_manifest/sample_pairs.csv</code>), with the buffy-coat
     methylation prior wired in via <code>--buffy-coat-bw</code>. On the 782-CpG
     high-variance panel built by <code>scripts/build_high_variance_panel.py</code>,
-    <strong>HAVI-Methyl (full torch) achieves Pearson r = 0.467 vs the
-    FinaleMe-style HMM baseline at r = 0.078 (6.0x lift), AUC
-    0.74 vs 0.56, and reduces credible-interval ECE from 0.47 to 0.32</strong>.
-    The win comes from running fit_svi_torch with the correct Beta-
-    Binomial trials parameter (WGBS read coverage, ds.n_total) instead
-    of the WGS fragment count. The simplified-numpy rows continue to
-    show their FinaleMe-baseline tie (r=0.08) by construction.</li>
+    <strong>HAVI-Methyl (full torch, 500-iter A10G run) achieves Pearson
+    r = 0.467 vs the FinaleMe-style HMM baseline at r = 0.078 (6.0x
+    lift), AUC 0.750 vs 0.564, and reduces credible-interval ECE
+    from 0.474 to 0.311</strong>. The win comes from running fit_svi_torch
+    with the correct Beta-Binomial trials parameter (WGBS read
+    coverage, <code>ds.n_total</code>) instead of the WGS fragment count. The
+    simplified-numpy rows continue to show their FinaleMe-baseline tie
+    (r ≈ 0.08) by construction.</li>
 <li><code>bench_finaleme_coverage_strat.csv</code> stratifies the Liu 2024 panel
     by WGBS depth: in the multi-read interior stratum FinaleMe is
     anti-correlated with truth (r=-0.05) while HAVI-Methyl reaches
@@ -1281,8 +1293,8 @@ actually stands today.</p>
   kwargs and reads the actual BED6 fragment + 8-column WGBS-track
   formats found on disk; both readers skip macOS <code>._</code> AppleDouble
   sidecars and normalise b37 chrom (<code>"1"</code> → <code>"chr1"</code>).</li>
-<li><strong>Test suite</strong> — 140 passed, 9 skipped (torch-conditional); all
-  green at the Phase 5 boundary.</li>
+<li><strong>Test suite</strong> — 156 tests, 9 torch-conditional skips on numpy-only
+  installs; all green at the Phase 5 / Phase 6 boundary.</li>
 </ul>
 <h2 id="what-is-not-live-data">What is <em>not</em> live data<a class="headerlink" href="#what-is-not-live-data" title="Permanent link">&para;</a></h2>
 <p>Two deliberate placeholders remain because they would require
@@ -1346,7 +1358,7 @@ fabricated numbers otherwise:</p>
 <tr>
 <td>IMPL-07</td>
 <td>Conformal calibration wrapper</td>
-<td><strong>Done.</strong> Density-set + worst-stratum diagnostics shipped; <code>bench_ablation_matrix.py</code> row A5 wraps the trained model with <code>gaussian_conformal_intervals</code> on a held-out calibration split, achieving 0.867 empirical coverage at the 0.90 nominal target.</td>
+<td><strong>Done.</strong> Density-set + worst-stratum diagnostics shipped; <code>bench_ablation_matrix.py</code> row A5 wraps the trained model with <code>gaussian_conformal_intervals</code> on a held-out calibration split, achieving 0.879 empirical coverage at the 0.90 nominal target (mean interval width 0.69).</td>
 </tr>
 <tr>
 <td>IMPL-08</td>
@@ -1376,13 +1388,13 @@ Sec. 11. Mirrors into <code>docs/report/results.json</code>,
 <code>docs/report/code/results.json</code>, <code>docs/report/figures/</code>, and
 <code>docs/report/tables/</code> are kept byte-identical by the script itself.</p>
 <h2 id="honest-negative-result">Honest negative result<a class="headerlink" href="#honest-negative-result" title="Permanent link">&para;</a></h2>
-<p>DMR F1 in <code>bench_finaleme_realdata.csv</code> is exactly 0.0 for the
-HAVI-Methyl-simplified hierarchy variants on the synthetic proxy. The
-empirical-Bayes shrinkage averages too much across loci to clear the
-(Δβ ≥ 0.25, BH-q ≤ 0.05) DMR threshold even with a +0.4 case/control
-shift. This is exactly the limitation the full per-sample flow
-posterior (IMPL-04) is intended to address; expect the F1 to recover
-once IMPL-02..05 are wired end-to-end.</p>
+<p>DMR F1 in <code>bench_finaleme_realdata.csv</code> is exactly 0.0 for every
+configuration on the Liu 2024 panel (HAVI-Methyl full torch + the
+simplified-numpy ablations + FinaleMe-style HMM). The empirical
+Δβ ≥ 0.25 + BH-q ≤ 0.05 threshold is not cleared by any of the five
+configurations on this 782-CpG panel; expect the F1 to recover once
+the flow head (<code>posterior="flow"</code>) is the headline configuration
+instead of the Gaussian head.</p>
 
 
 

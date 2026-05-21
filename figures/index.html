@@ -1532,10 +1532,10 @@ script <code>scripts/fig_calibration.py</code>.</p>
 <h3 id="elbo_trajectorypng"><code>elbo_trajectory.png</code><a class="headerlink" href="#elbo_trajectorypng" title="Permanent link">&para;</a></h3>
 <p><img alt="ELBO trajectory" src="../assets/figures/elbo_trajectory.png" /></p>
 <p>ELBO + per-iteration Pearson <span class="arithmatex">\(r\)</span> from the real Liu 2024 torch SVI run
-on an A10 GPU; final <span class="arithmatex">\(r = 0.455\)</span> matches the headline real-data row.
-<strong>Source:</strong> the <code>TorchSVIState.elbo_history</code> and <code>snapshots</code> of the
-real-data bench, captured by <code>--torch-snapshot-every 20</code>; script
-<code>scripts/fig_elbo_trajectory.py</code>.</p>
+on a single A10G GPU (<span class="arithmatex">\(500\)</span> iterations); final <span class="arithmatex">\(r = 0.467\)</span> matches the
+headline real-data row. <strong>Source:</strong> the <code>TorchSVIState.elbo_history</code> and
+<code>snapshots</code> of the real-data bench, captured by <code>--torch-snapshot-every 20</code>;
+script <code>scripts/fig_elbo_trajectory.py</code>.</p>
 
 
 

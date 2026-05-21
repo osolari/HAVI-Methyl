@@ -1448,7 +1448,7 @@ expensive re-fit.</p>
 <code>outputs/tables/bench_finaleme_realdata.csv</code> already contains a real
 <code>_status="Liu 2024..."</code> row, the script will not overwrite it with the
 synthetic-proxy fallback when the lab drive is unmounted. This is what
-keeps the headline Pearson <span class="arithmatex">\(r = 0.455\)</span> row alive across local CPU
+keeps the headline Pearson <span class="arithmatex">\(r = 0.467\)</span> row alive across local CPU
 re-runs that cannot see <code>/Volumes/Omid Solari/finaleme/</code>.</p>
 <p>To force a re-run, delete <code>bench_finaleme_realdata.csv</code> before invoking
 <code>scripts/run_all.sh</code>, or pass <code>--force-realdata</code> to the bench script.</p>
@@ -1484,11 +1484,13 @@ and the invariant will heal.</p>
 </ul>
 <p>9 are torch-conditional and skip on a numpy-only install.</p>
 <h2 id="compute-environment-notes">Compute environment notes<a class="headerlink" href="#compute-environment-notes" title="Permanent link">&para;</a></h2>
-<p>The headline Liu 2024 real-data row was produced on a single A10 GPU.
-The numpy-only synthetic benches run on CPU in minutes. The Phase 5
-torch run uses <code>a10-dev</code> over SSH (<code>ssh a10-dev</code>); the bench script
-auto-detects the lab drive at <code>/cb/home/omids/data/finaleme</code> when run
-on that host, and at <code>/Volumes/Omid Solari/finaleme/</code> when run locally.</p>
+<p>The headline Liu 2024 real-data row was produced by a <span class="arithmatex">\(500\)</span>-iteration
+training of <code>fit_svi_torch</code> on a single NVIDIA A10G GPU with mini-batch
+sizes <span class="arithmatex">\(|B_s|=16\)</span>, <span class="arithmatex">\(|B_\ell|=128\)</span> and <span class="arithmatex">\(K=4\)</span> IWAE samples. The numpy-only
+synthetic benches run on CPU in minutes. The Phase 5 torch run uses
+<code>a10-dev</code> over SSH (<code>ssh a10-dev</code>); the bench script auto-detects the
+lab drive at <code>/cb/home/omids/data/finaleme</code> when run on that host, and
+at <code>/Volumes/Omid Solari/finaleme/</code> when run locally.</p>
 <div class="admonition note">
 <p class="admonition-title">macOS Removable-Volumes TCC</p>
 <p>On macOS the running VS Code process must have explicit

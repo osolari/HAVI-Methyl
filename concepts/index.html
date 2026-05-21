@@ -1339,7 +1339,9 @@ spurious negative correlations on real data.</p>
 the encoder context. The loader exposes this explicitly:
 <code>load_finaleme_dataset</code> returns both <code>ds.n</code> (WGS fragment counts,
 <span class="arithmatex">\(S\times L\)</span>) and <code>ds.n_total</code> (WGBS coverage, <span class="arithmatex">\(S\times L\)</span>), and only the
-latter belongs in the Beta-Binomial trials slot. See the
+latter belongs in the Beta-Binomial trials slot. Conflating the two
+collapses the full-torch posterior to <span class="arithmatex">\(r \approx 0\)</span>; the fix is what
+lifts HAVI-Methyl from <span class="arithmatex">\(r = -0.07\)</span> to <span class="arithmatex">\(r = 0.467\)</span> on Liu 2024. See the
 <a href="../architecture/">Architecture</a> page for the exact <code>n_obs=ds.n_total</code>
 contract.</p>
 <h2 id="2-cfdna-fragmentomics-carries-methylation-signal">2. cfDNA fragmentomics carries methylation signal<a class="headerlink" href="#2-cfdna-fragmentomics-carries-methylation-signal" title="Permanent link">&para;</a></h2>

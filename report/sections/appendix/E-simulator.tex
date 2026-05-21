@@ -17,11 +17,11 @@ p_{\mathrm{cut}}(x) \propto \exp\!\big(-d_{\mathrm{linker}}(x)/\sigma_{\mathrm{l
 The earlier shorthand using $\exp(-d_{\mathrm{nuc}}/\sigma)$ with $d_{\mathrm{nuc}}$ as distance to the nucleosome center would instead concentrate cuts near centers and is not the intended linker-bias model. The bracket $[\cdot]_+$ denotes truncation to nonnegative density.
 
 \subsection*{Step 3: Fragment-length distribution}
-Fragment lengths $L$ are sampled from a mixture corresponding to mono-, di-, and tri-nucleosomal fragments:
+Fragment lengths $L$ are sampled from a 3-mode Gaussian mixture corresponding to mono-, di-, and tri-nucleosomal fragments. The mixture was re-fit by EM on $\sim$5M real Liu 2024 cfDNA fragments (8 patients, chr 1 and 19--22, length range $[50, 500]$~bp):
 \begin{equation}
-p(L) = 0.7\,\N(167, 15^2) + 0.2\,\N(332, 30^2) + 0.1\,\N(500, 80^2).
+p(L) = 0.874\,\N(161, 21^2) + 0.117\,\N(313, 38^2) + 0.009\,\N(455, 27^2).
 \end{equation}
-These values are planning defaults motivated by published cfDNA fragment-length distributions and should be fitted or checked for each dataset.
+These coefficients ship as \texttt{LENGTH\_MIXTURE\_*} constants in \texttt{src/havi\_methyl/constants.py} and override the earlier spec defaults $\pi^{\mathrm{spec}} = [0.7, 0.2, 0.1]$, $\mu^{\mathrm{spec}} = [167, 332, 500]$~bp. With the re-fit mixture the simulator's $320$--$350$~bp peak height ($0.0012$ per bp) matches the Liu 2024 empirical value ($0.00098$ per bp); see Appendix~\ref{app:simvalidation}.
 
 \subsection*{Step 4: End-motif sampling}
 The 4-mer end motif at each cut site is sampled from a categorical distribution over $256$ possible 4-mers, with logits conditioned on local genome sequence and local methylation:
@@ -55,9 +55,9 @@ Repulsion strength & $0.1$ & verify / fit \\
 Linker rolloff $\sigma_{\mathrm{link}}$ & $20$~bp & verify / fit \\
 Periodicity amplitude $a$ & $0.3$ & verify / fit \\
 Periodicity period & $10.4$~bp & biological prior \\
-Length mixture mode 1 & $\N(167, 15^2)$ & verify / fit \\
-Length mixture mode 2 & $\N(332, 30^2)$ & verify / fit \\
-Length mixture mode 3 & $\N(500, 80^2)$ & verify / fit \\
+Length mixture mode 1 & $0.874\,\N(161, 21^2)$ & EM-fit on Liu 2024 \\
+Length mixture mode 2 & $0.117\,\N(313, 38^2)$ & EM-fit on Liu 2024 \\
+Length mixture mode 3 & $0.009\,\N(455, 27^2)$ & EM-fit on Liu 2024 \\
 Per-base error rate & platform-specific & set by assay \\
 Read length & platform-specific & set by assay \\
 NB dispersion $r$ & dataset-specific & fit \\
