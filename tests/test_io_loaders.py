@@ -103,11 +103,11 @@ def test_load_finaleme_dataset_parses_paired_samples(tmp_path: Path) -> None:
     # 1 fragment at [200,367) covers locus 1 only -> n = [2, 3].
     _write_text_gz(
         frag_dir / "sampleA.b37.tsv.gz",
-        "1\t100\t267\t.\t0\t+\n" "1\t100\t300\t.\t0\t-\n" "1\t200\t367\t.\t0\t+\n",
+        "1\t100\t267\t.\t0\t+\n1\t100\t300\t.\t0\t-\n1\t200\t367\t.\t0\t+\n",
     )
     _write_text_gz(
         frag_dir / "sampleB.b37.tsv.gz",
-        "1\t100\t267\t.\t0\t-\n" "1\t200\t367\t.\t0\t+\n",
+        "1\t100\t267\t.\t0\t-\n1\t200\t367\t.\t0\t+\n",
     )
     # WGBS truth (Liu 2024 8-col track form: chrom start end name score strand meth_pct coverage).
     _write_text_gz(
@@ -146,11 +146,11 @@ def test_load_roadmap_wgbs_atlas(tmp_path: Path) -> None:
     aorta.mkdir(parents=True)
     _write_text_gz(
         liver / "GSM1_liver_sample.wig.gz",
-        "track type=wiggle_0 name=test\n" "variableStep chrom=chr1\n" "100\t0.10\n" "200\t0.20\n",
+        "track type=wiggle_0 name=test\nvariableStep chrom=chr1\n100\t0.10\n200\t0.20\n",
     )
     _write_text_gz(
         liver / "GSM2_liver_sample.wig.gz",
-        "track type=wiggle_0 name=test\n" "variableStep chrom=chr1\n" "100\t0.30\n" "200\t0.40\n",
+        "track type=wiggle_0 name=test\nvariableStep chrom=chr1\n100\t0.30\n200\t0.40\n",
     )
     _write_text_gz(
         aorta / "GSM3_aorta_sample.wig.gz",
